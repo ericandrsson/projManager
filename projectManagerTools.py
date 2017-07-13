@@ -5,30 +5,74 @@ import os
 from maya import cmds
 import maya.OpenMaya as om
 
+
 class projectManagerTools(QtWidgets.QDialog):
 
     def __init__(self):
         super(projectManagerTools, self).__init__()
         reload (projectManager)
         self.projectManager = projectManager.ProjectManager()
+        self.currentProj = self.getCurrentProj()
         self.build_projectManagerToolsUI()
+        self.populatePublish()
 
     def build_projectManagerToolsUI(self):
         loader = QtUiTools.QUiLoader()
-        self.projectManagerToolsUI = loader.load(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'UI', 'projectManagertools.ui'))
+        self.projectManagerToolsUI = loader.load(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'UI', 'projectManagerTools.ui'))
 
-        self.set_render_path = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'render_paths')
-        self.open_project_dir = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'project_dir')
-        self.playblast = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'playblast')
+        self.publish_asset = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'publish_btn')
+        self.add_meta = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'meta')
+        self.publishCheckBoxLayout = self.projectManagerToolsUI.findChild(QtWidgets.QVBoxLayout, 'verticalLayout_6')
+        self.publishBtn = QtWidgets.QPushButton("Publish")
 
-        # Sets the render path
-        self.set_render_path.clicked.connect(self.projectManager.popRenderPath)
-        self.open_project_dir.clicked.connect(self.openProjectDir)
-        self.playblast.clicked.connect(self.bashComp)
+
+        self.publishBtn.clicked.connect(self.publishAlembic)
+        self.add_meta.clicked.connect(self.addMeta)
+
 
         mainLayout = QtWidgets.QVBoxLayout()
         mainLayout.addWidget(self.projectManagerToolsUI)
         self.setLayout(mainLayout)
+
+
+
+    def populatePublish(self):
+        self.publishBtn.setEnabled(False)
+        self.metaItems = []
+        self.checkBoxList = []
+        allObjects = cmds.ls(dag=True)
+
+        for obj in allObjects:
+            if cmds.attributeQuery('publishMetadata', n=obj, exists=True):
+                children = cmds.listRelatives(obj, children=True, fullPath=True) or []
+                if len(children) == 1:
+                    child = children[0]
+                    objType = cmds.objectType(child)
+                else:
+                    objType = cmds.objectType(obj)
+
+                if objType == 'mesh' or objType =='camera' or objType =='transform':
+                    if objType == 'mesh':
+                        type = 'Geometry'
+                    elif objType == 'camera':
+                        type = 'Camera'
+                    elif objType == 'transform':
+                        type = 'Group'
+
+                    if 'assets' in self.currentProj['filePath']:
+                        if type == 'Geometry':
+                            self.metaItems.append(obj)
+                            self.publishCheckBox = QtWidgets.QCheckBox('[' + type + '] - ' + obj)
+                            self.checkBoxDict = {'Name':  obj, 'ID': self.publishCheckBox, 'Type': type}
+                            self.checkBoxList.append(self.checkBoxDict)
+                            self.publishCheckBoxLayout.addWidget(self.publishCheckBox)
+
+        if self.checkBoxList:
+            self.publishBtn.setEnabled(True)
+
+        self.publishCheckBoxLayout.addWidget(self.publishBtn)
+
+
 
 
     def openProjectDir(self):
@@ -87,14 +131,14 @@ class projectManagerTools(QtWidgets.QDialog):
 
     def bashComp(self):
         try:
-            currentProj = self.getCurrentProj()
-            imagesVersionDir = os.path.join(currentProj['projectDir'], 'images', 'v' + currentProj['version'])
+            self.currentProj = self.getCurrentProj()
+            imagesVersionDir = os.path.join(self.currentProj['projectDir'], 'images', 'v' + self.currentProj['version'])
             currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
             numCurrentFiles = []
 
-            currentProjSplit = currentProj['projectDir'].split(os.path.sep)
+            self.currentProjSplit = self.currentProj['projectDir'].split(os.path.sep)
 
-            reviewDir = os.path.join(os.path.join('/', *currentProjSplit[0:-3]), 'review', 'maya')
+            reviewDir = os.path.join(os.path.join('/', *self.currentProjSplit[0:-3]), 'review', 'maya')
 
             reviewFileList = [i for i in os.listdir(reviewDir) if i.endswith('.mov')]
 
@@ -102,7 +146,7 @@ class projectManagerTools(QtWidgets.QDialog):
                 numFiles = "1"
                 revisionID = numFiles.zfill(3)
             else:
-                reviewVersion = 'v' + currentProj['version']
+                reviewVersion = 'v' + self.currentProj['version']
                 # Looks for files with same file version in playblast folder
                 for item in reviewFileList:
                     if reviewVersion in item:
@@ -121,8 +165,8 @@ class projectManagerTools(QtWidgets.QDialog):
 
             # Checks for all files that matches
             renderLayerFileList = [i for i in os.listdir(os.path.join(imagesVersionDir, chosenRenderLayer))
-                                                            if i.startswith(currentProj['sceneName'][:-5] + '_' + chosenRenderLayer + '_v' +
-                                                            currentProj['version'])]
+                                                            if i.startswith(self.currentProj['sceneName'][:-5] + '_' + chosenRenderLayer + '_v' +
+                                                            self.currentProj['version'])]
 
             frameRange = ('1,' + str(len(renderLayerFileList)))
 
@@ -139,7 +183,7 @@ class projectManagerTools(QtWidgets.QDialog):
                                str(nukeBashInput) + " " +
                                str(nukeBashOutput) + " " +
                                str(self.projectManager.user) + " " +
-                               str(currentProj['sceneName']) + " " +
+                               str(self.currentProj['sceneName']) + " " +
                                str('r_' + revisionID) + " " +
                                str(self.projectManager.projectName) + " " +
                                str(frameRange))
@@ -159,10 +203,56 @@ class projectManagerTools(QtWidgets.QDialog):
         except:
             om.MGlobal.displayError('No rendered images can be found.')
 
-    def publishAsset(self):
-        currentProj = self.getCurrentProj()
+    def publishAlembic(self):
+        # Load the alembic plugin
+        cmds.loadPlugin("AbcExport.mll", quiet=True)
+        selection = cmds.ls(selection=True)
 
-        '''tagItems = cmds.ls(selection = True)
+        alembicExportList = []
+
+        for c in self.checkBoxList:
+            if QtWidgets.QCheckBox.isChecked(c['ID']) == True:
+                alembicExportList.append(c)
+
+        if alembicExportList:
+            outputPaths = []
+            for i in alembicExportList:
+                if 'assets' in self.currentProj['filePath']:
+                    pStart = 1
+                    pEnd = 1
+                    publishItem = "-root " + i['Name']
+                    alembicPath = os.path.join(self.currentProj['publishDir'], self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc')
+                    outputPaths.append(alembicPath)
+                    #alembicPublishCommand = "-frameRange " + str(pStart) + " " + str(pEnd) +" -uvWrite -worldSpace " + str(publishItem) + " -file " + str(publishDir)
+
+                    command = "-attr ModelUsed -attr Namespace -attr scaleX -attr scaleY -attr scaleZ -attr visibility -frameRange %i %i -uvWrite -writeVisibility -worldSpace -eulerFilter -dataFormat hdf %s -file %s" % \
+                              (pStart,
+                               pEnd,
+                               publishItem,
+                               alembicPath)
+
+                    cmds.AbcExport ( j = command )
+
+            exitCode = 0
+            for f in outputPaths:
+                if os.path.isfile(f) == False:
+                    exitCode += 1
+
+            if exitCode == 0:
+                try:
+                    os.startfile(self.currentProj['publishDir'])
+                except:
+                    subprocess.call(["open", self.currentProj['publishDir']])
+
+                om.MGlobal.displayInfo('All alembics were exported successfully! ')
+                self.close()
+
+        else:
+            om.MGlobal.displayError('No items selected.')
+
+
+    def addMeta(self):
+        tagItems = cmds.ls(selection = True)
         sceneCams = cmds.listCameras(perspective=True)
         noItems = str(len(tagItems))
 
@@ -222,17 +312,7 @@ class projectManagerTools(QtWidgets.QDialog):
                 cmds.setAttr(item + '.outlinerColorB', 0.0)
 
         om.MGlobal.displayInfo(noItems + ' items tagged with metadata successfully.')
-
-
-
-        1. Get project info, task etc.
-        2. Get selected object to publish.
-        3. Check whether it's geo or not.
-
-        '''
-
-
-
+        self.close()
 
     def getCurrentProj(self):
         projectDir = cmds.workspace(query=True, rootDirectory=True)
@@ -243,7 +323,12 @@ class projectManagerTools(QtWidgets.QDialog):
         task = sceneName.split('_')[1]
         version = sceneName.split('v')[1]
 
-        currentProj = {'projectDir': projectDir, 'filePath': filePath, 'fileName': fileName, 'sceneName': sceneName, 'assetName': assetName, 'task': task, 'version': version}
+        currentProjSplit = projectDir.split(os.path.sep)
+        publishDir = os.path.join(os.path.join('/', *currentProjSplit[0:-3]), 'publish', 'maya')
+
+
+        currentProj = {'projectDir': projectDir, 'filePath': filePath, 'fileName': fileName, 'sceneName': sceneName,
+                       'assetName': assetName, 'task': task, 'version': version, 'publishDir': publishDir}
         return (currentProj)
 
 
