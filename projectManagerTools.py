@@ -40,6 +40,7 @@ class projectManagerTools(QtWidgets.QDialog):
         self.publishBtn.setEnabled(False)
         self.metaItems = []
         self.checkBoxList = []
+
         allObjects = cmds.ls(dag=True)
 
         for obj in allObjects:
@@ -60,12 +61,19 @@ class projectManagerTools(QtWidgets.QDialog):
                         type = 'Group'
 
                     if 'assets' in self.currentProj['filePath']:
-                        if type == 'Geometry':
+                        if type != 'Camera':
                             self.metaItems.append(obj)
                             self.publishCheckBox = QtWidgets.QCheckBox('[' + type + '] - ' + obj)
                             self.checkBoxDict = {'Name':  obj, 'ID': self.publishCheckBox, 'Type': type}
                             self.checkBoxList.append(self.checkBoxDict)
                             self.publishCheckBoxLayout.addWidget(self.publishCheckBox)
+
+                    elif 'shots' in self.currentProj['filePath']:
+                        self.metaItems.append(obj)
+                        self.publishCheckBox = QtWidgets.QCheckBox('[' + type + '] - ' + obj)
+                        self.checkBoxDict = {'Name':  obj, 'ID': self.publishCheckBox, 'Type': type}
+                        self.checkBoxList.append(self.checkBoxDict)
+                        self.publishCheckBoxLayout.addWidget(self.publishCheckBox)
 
         if self.checkBoxList:
             self.publishBtn.setEnabled(True)
@@ -217,14 +225,24 @@ class projectManagerTools(QtWidgets.QDialog):
         if alembicExportList:
             outputPaths = []
             for i in alembicExportList:
+
                 if 'assets' in self.currentProj['filePath']:
                     pStart = 1
                     pEnd = 1
-                    publishItem = "-root " + i['Name']
-                    alembicPath = os.path.join(self.currentProj['publishDir'], self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc')
-                    outputPaths.append(alembicPath)
-                    #alembicPublishCommand = "-frameRange " + str(pStart) + " " + str(pEnd) +" -uvWrite -worldSpace " + str(publishItem) + " -file " + str(publishDir)
 
+                elif 'shots' in self.currentProj['filePath']:
+                    pStart = 1
+                    pEnd = 50
+
+                publishItem = "-root " + i['Name']
+
+                alembicVersionPath = os.path.join(self.currentProj['publishDir'], 'v' + self.currentProj['version'])
+                alembicPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc')
+
+                if not os.path.isfile(alembicPath):
+                    if not os.path.exists(alembicVersionPath):
+                        os.makedirs(alembicVersionPath)
+                    outputPaths.append(alembicPath)
                     command = "-attr ModelUsed -attr Namespace -attr scaleX -attr scaleY -attr scaleZ -attr visibility -frameRange %i %i -uvWrite -writeVisibility -worldSpace -eulerFilter -dataFormat hdf %s -file %s" % \
                               (pStart,
                                pEnd,
@@ -234,18 +252,38 @@ class projectManagerTools(QtWidgets.QDialog):
                     cmds.AbcExport ( j = command )
 
             exitCode = 0
-            for f in outputPaths:
-                if os.path.isfile(f) == False:
-                    exitCode += 1
+            if outputPaths:
+                for f in outputPaths:
+                    if os.path.isfile(f) == False:
+                        exitCode += 1
+            else:
+                exitCode+=1
 
             if exitCode == 0:
-                try:
-                    os.startfile(self.currentProj['publishDir'])
-                except:
-                    subprocess.call(["open", self.currentProj['publishDir']])
+
+                screenShotPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_publish.jpg')
+                cmds.viewFit()
+                cmds.setAttr('defaultRenderGlobals.imageFormat', 8)
+                cmds.playblast(completeFilename=screenShotPath, forceOverwrite=True, format='image', width=512, height=512,
+                               showOrnaments=False, startTime=1, endTime=1, viewer=False)
+
+                # Takes the current version, pluses 1, filles it with zeros and conc back to correct filepath.
+                newVersion = (self.currentProj['fileName'][:-6] + str(int(self.currentProj['version']) + 1).zfill(3))
+                cmds.file(rename=str(newVersion))
+                cmds.file(save=True, type='mayaAscii')
+                self.close()
+
+
 
                 om.MGlobal.displayInfo('All alembics were exported successfully! ')
-                self.close()
+
+                try:
+                    os.startfile(alembicVersionPath)
+                except:
+                    subprocess.call(["open", alembicVersionPath])
+
+            else:
+                om.MGlobal.displayError('Something went wrong. Please contact your suporvisor.')
 
         else:
             om.MGlobal.displayError('No items selected.')
