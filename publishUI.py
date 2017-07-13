@@ -24,10 +24,10 @@ class PublishUI(QtWidgets.QDialog):
         self.setLayout(mainLayout)
 
     def publishAbc(self):
-
         selected_geo = cmds.ls(sl=True)
         for item in selected_geo:
             self.item = QtWidgets.QCheckBox(item)
+
             self.publish_alembic_layout.addWidget(self.item)
 def showUI():
     ui = PublishUI()

@@ -70,39 +70,6 @@
      </item>
     </layout>
    </item>
-   <item row="0" column="1">
-    <widget class="QLabel" name="label">
-     <property name="font">
-      <font>
-       <pointsize>18</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>Project Manager</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="1">
-    <widget class="QProgressBar" name="bidtimeBar">
-     <property name="value">
-      <number>0</number>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="1">
-    <layout class="QGridLayout" name="gridLayout_3">
-     <property name="sizeConstraint">
-      <enum>QLayout::SetFixedSize</enum>
-     </property>
-     <item row="0" column="0">
-      <widget class="QLabel" name="label_5">
-       <property name="text">
-        <string>Bid percentage</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
    <item row="2" column="1">
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
@@ -175,6 +142,21 @@
         <attribute name="title">
          <string>Assets</string>
         </attribute>
+        <layout class="QVBoxLayout" name="verticalLayout_6">
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <item>
+            <widget class="QListWidget" name="assets_listWidget">
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
        </widget>
        <widget class="QWidget" name="shots_tab">
         <attribute name="title">
@@ -186,7 +168,16 @@
            <item>
             <layout class="QHBoxLayout" name="shots_hLayout">
              <item>
-              <widget class="QListWidget" name="shots_listWidget"/>
+              <layout class="QVBoxLayout" name="verticalLayout_3"/>
+             </item>
+             <item>
+              <widget class="QListWidget" name="shots_listWidget">
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                </font>
+               </property>
+              </widget>
              </item>
             </layout>
            </item>
@@ -202,6 +193,39 @@
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>Developed by Eric Andersson (v1)</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <layout class="QGridLayout" name="gridLayout_3">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetFixedSize</enum>
+     </property>
+     <item row="0" column="0">
+      <widget class="QLabel" name="label_5">
+       <property name="text">
+        <string>Bid percentage</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="0" column="1">
+    <widget class="QLabel" name="label">
+     <property name="font">
+      <font>
+       <pointsize>18</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Project Manager</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QProgressBar" name="bidtimeBar">
+     <property name="value">
+      <number>0</number>
      </property>
     </widget>
    </item>

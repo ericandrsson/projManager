@@ -1,0 +1,254 @@
+from projManager import projectManager
+from PySide2 import QtWidgets, QtUiTools
+import subprocess
+import os
+from maya import cmds
+import maya.OpenMaya as om
+
+class projectManagerTools(QtWidgets.QDialog):
+
+    def __init__(self):
+        super(projectManagerTools, self).__init__()
+        reload (projectManager)
+        self.projectManager = projectManager.ProjectManager()
+        self.build_projectManagerToolsUI()
+
+    def build_projectManagerToolsUI(self):
+        loader = QtUiTools.QUiLoader()
+        self.projectManagerToolsUI = loader.load(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'UI', 'projectManagertools.ui'))
+
+        self.set_render_path = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'render_paths')
+        self.open_project_dir = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'project_dir')
+        self.playblast = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'playblast')
+
+        # Sets the render path
+        self.set_render_path.clicked.connect(self.projectManager.popRenderPath)
+        self.open_project_dir.clicked.connect(self.openProjectDir)
+        self.playblast.clicked.connect(self.bashComp)
+
+        mainLayout = QtWidgets.QVBoxLayout()
+        mainLayout.addWidget(self.projectManagerToolsUI)
+        self.setLayout(mainLayout)
+
+
+    def openProjectDir(self):
+        projectdir = os.path.dirname(cmds.file(q=True, sn=True))
+        try:
+            os.startfile(projectdir)
+        except:
+            subprocess.call(["open", projectdir])
+
+    def fast_playblast(self, widthArg=1280, heightArg=720):
+
+        playblastDir = projectDir + "playblasts"
+        playblastFile = projectDir + sceneName + ".mov"
+        numCurrentFiles = []
+
+        # Create a playblasts directory
+        cmds.sysFile(playblastDir, makeDir=True)
+
+        # Create playblast
+        cmds.playblast(filename=sceneName, format="qt",  width=widthArg, height=heightArg, viewer=False, percent=100)
+
+        # Check how many files are in the playblast folder
+        allFilesList = cmds.getFileList(folder=images)
+
+        # Looks for files with same file version in playblast folder
+        # Script does not work if it doesnt detect any files to get revison number so that is what the if else statment is for
+        # Two options: IF = if there is no playblast file.   ELSE = there are play blast files.
+        if str(bool(allFilesList)) == "False":
+           numFiles = "1"
+
+           revisionID = numFiles.zfill(3)
+           # Copy Playblast file and delete original
+
+        else:
+            # Remove Thumbs.db
+            if 'Thumbs.db' in allFilesList: allFilesList.remove('Thumbs.db')
+
+            # Turns version into playBlast version to remove counting of revions with 002,003,004 etc
+            # Outcome example v002
+            playBlastversion = 'v' + version
+
+            # Looks for files with same file version in playblast folder
+            for item in allFilesList:
+                if playBlastversion in item:
+                    numCurrentFiles.append(item)
+
+                numFiles = str(len(numCurrentFiles) + 1)
+
+                revisionID = numFiles.zfill(3)
+
+        # Copy Playblast file to correct folder and delete original
+        cmds.sysFile(playblastFile, copy=playblastDir + "/" + sceneName + "_r" + revisionID + ".mov")
+        cmds.sysFile(playblastFile, delete=True)
+
+        om.MGlobal.displayInfo("******* Fastblast completed successfully *******")
+
+    def bashComp(self):
+        try:
+            currentProj = self.getCurrentProj()
+            imagesVersionDir = os.path.join(currentProj['projectDir'], 'images', 'v' + currentProj['version'])
+            currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
+            numCurrentFiles = []
+
+            currentProjSplit = currentProj['projectDir'].split(os.path.sep)
+
+            reviewDir = os.path.join(os.path.join('/', *currentProjSplit[0:-3]), 'review', 'maya')
+
+            reviewFileList = [i for i in os.listdir(reviewDir) if i.endswith('.mov')]
+
+            if not reviewFileList:
+                numFiles = "1"
+                revisionID = numFiles.zfill(3)
+            else:
+                reviewVersion = 'v' + currentProj['version']
+                # Looks for files with same file version in playblast folder
+                for item in reviewFileList:
+                    if reviewVersion in item:
+                        numCurrentFiles.append(item)
+
+                    numFiles = str(len(numCurrentFiles) + 1)
+                    revisionID = numFiles.zfill(3)
+
+            # Give user option to chose which renderlayer to do bashComp, 'multiple merged?'
+            if len(currentRenderLayerDirs) > 1:
+                chosenRenderLayer = currentRenderLayerDirs[0]
+
+            else:
+                chosenRenderLayer = currentRenderLayerDirs[0]
+
+
+            # Checks for all files that matches
+            renderLayerFileList = [i for i in os.listdir(os.path.join(imagesVersionDir, chosenRenderLayer))
+                                                            if i.startswith(currentProj['sceneName'][:-5] + '_' + chosenRenderLayer + '_v' +
+                                                            currentProj['version'])]
+
+            frameRange = ('1,' + str(len(renderLayerFileList)))
+
+            # Gets the extension of the first file in list
+            renderLayerExt = renderLayerFileList[0][-3:]
+            nukeBashInput = os.path.join(imagesVersionDir, chosenRenderLayer, str(renderLayerFileList[0][0:-8:] + '####.' + renderLayerExt))
+            nukeBashOutput = os.path.join('/' + reviewDir, str(renderLayerFileList[0][:-8] + 'review_r' + revisionID))
+
+
+
+            # Creates the shell command to launch nuke with right commands
+            nukeBashCommand = (str(self.projectManager.nukePath) + ' -x' + " " +
+                               str(self.projectManager.nukeBashScript) + " " +
+                               str(nukeBashInput) + " " +
+                               str(nukeBashOutput) + " " +
+                               str(self.projectManager.user) + " " +
+                               str(currentProj['sceneName']) + " " +
+                               str('r_' + revisionID) + " " +
+                               str(self.projectManager.projectName) + " " +
+                               str(frameRange))
+            nukeRunBash = subprocess.call(nukeBashCommand, shell=True)
+
+            # Checks for return code
+            if nukeRunBash == 0:
+                try:
+                    os.startfile(reviewDir)
+                except:
+                    subprocess.call(["open", reviewDir])
+                om.MGlobal.displayInfo('** bashComp finished successfully **')
+            else:
+                om.MGlobal.displayError('Something went wrong.')
+
+            self.close()
+        except:
+            om.MGlobal.displayError('No rendered images can be found.')
+
+    def publishAsset(self):
+        currentProj = self.getCurrentProj()
+
+        '''tagItems = cmds.ls(selection = True)
+        sceneCams = cmds.listCameras(perspective=True)
+        noItems = str(len(tagItems))
+
+        # For each item
+        for item in tagItems:
+            cmds.select(item)
+
+            # If Metadata exists delete it first and continue
+            if cmds.attributeQuery('publishMetadata', n=item, exists=True):
+                cmds.deleteAttr(item + '.publishMetadata')
+                cmds.setAttr(item + '.useOutlinerColor', False)
+
+            else:
+                pass
+
+            # Collect attributes
+            uuidTag = cmds.ls(selection = True, uuid = True)[0]
+            filePath = cmds.file(query=True,sn=True)
+            version = (filePath.split('_v')[1]).split('.')[0]
+
+
+            # Add attributes
+            cmds.addAttr(longName='publishMetadata', niceName='Publish Metadata', numberOfChildren=6, attributeType='compound')
+            cmds.addAttr(longName='uuid', niceName='UUID', dataType='string', parent='publishMetadata')
+            cmds.addAttr(longName='alembic', niceName='Alembic Name', dataType='string', parent='publishMetadata')
+            cmds.addAttr(longName='subframe', niceName='Subframe Size', at = 'enum', en='180 Degrees (Default):144 Degrees:90 Degrees', parent='publishMetadata')
+            cmds.addAttr(longName='version', niceName='Publish Version', dataType='string',parent='publishMetadata')
+            cmds.addAttr(longName='artist', niceName='Artist', dataType='string', parent='publishMetadata')
+            cmds.addAttr(longName='note', niceName='User Notes', dataType='string', parent='publishMetadata')
+
+            # Set attributes
+            cmds.setAttr((item + '.uuid'),uuidTag, typ='string')
+            cmds.setAttr((item + '.alembic'), item, typ='string')
+            cmds.setAttr((item + '.version'), version, typ='string')
+            cmds.setAttr((item + '.artist'), self.projectManager.user, typ='string')
+            cmds.setAttr((item + '.note'),'Type a short note here if you like...', typ='string')
+
+
+            # Lock Down Attributes
+            cmds.setAttr(item + ".uuid", lock=True)
+            cmds.setAttr(item + ".alembic", lock=True)
+            cmds.setAttr(item + ".version", lock=True)
+
+            #Colour item in outliner
+            if item in sceneCams:
+                # Colour code for Camera
+                cmds.setAttr(item + '.useOutlinerColor', True)
+                cmds.setAttr(item + '.outlinerColorR', 0.0)
+                cmds.setAttr(item + '.outlinerColorG', 0.5)
+                cmds.setAttr(item + '.outlinerColorB', 1.0)
+
+            else:
+                # Colour code for Geo
+                cmds.setAttr(item + '.useOutlinerColor', True)
+                cmds.setAttr(item + '.outlinerColorR', 1.0)
+                cmds.setAttr(item + '.outlinerColorG', 0.7)
+                cmds.setAttr(item + '.outlinerColorB', 0.0)
+
+        om.MGlobal.displayInfo(noItems + ' items tagged with metadata successfully.')
+
+
+
+        1. Get project info, task etc.
+        2. Get selected object to publish.
+        3. Check whether it's geo or not.
+
+        '''
+
+
+
+
+    def getCurrentProj(self):
+        projectDir = cmds.workspace(query=True, rootDirectory=True)
+        filePath = cmds.file(query=True, sn=True)
+        fileName = filePath.split('/')[-1]
+        sceneName = fileName.split('.')[0]
+        assetName = fileName.split('_')[0]
+        task = sceneName.split('_')[1]
+        version = sceneName.split('v')[1]
+
+        currentProj = {'projectDir': projectDir, 'filePath': filePath, 'fileName': fileName, 'sceneName': sceneName, 'assetName': assetName, 'task': task, 'version': version}
+        return (currentProj)
+
+
+
+def showUI():
+    ui = projectManagerTools()
+    ui.show()
+    return ui
