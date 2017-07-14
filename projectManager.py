@@ -9,7 +9,7 @@ class ProjectManager:
     # Path to project folder.
     #projectFolder = 'C:/apps/autodesk/2017/Maya2017/plug-ins/camd/scripts/teamProduction/'
     projectName = 'teamProduction'
-    projectFolder = os.path.join('/Users/EricAndersson/Desktop/' + projectName)
+    projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
 
     nukePath = '/Applications/Nuke10.5v2/Nuke10.5v2*Non-commercial.app/Nuke10.5v2*Non-commercial'
     nukeBashScript = os.path.join(projectFolder, 'tools', 'scripts','nuke','nukeBash.nknc')
@@ -20,13 +20,17 @@ class ProjectManager:
 
 
     def __init__(self):
-        self.user = getpass.getuser()
+        #self.user = getpass.getuser()
+        self.user = 'Eric'
 
     def getAssets(self):
         # Fetches and reads the assets csv file.
         assets_csv_url = 'https://docs.google.com/spreadsheets/d/1-a2K2BXe1uCPinImkMx5qVsuJcKoylxrWBqQxNl2yA0/pub?gid=797696484&single=true&output=csv'
-        #req_assets_csv = requests.get(assets_csv_url, verify='C:/apps/python/2.7.8/Lib/site-packages/certifi/cacert.pem')
-        req_assets_csv = requests.get(assets_csv_url, stream=True)
+        try:
+            req_assets_csv = requests.get(assets_csv_url, stream=True)
+        except:
+            req_assets_csv = requests.get(assets_csv_url, verify='C:/apps/python/2.7.8/Lib/site-packages/certifi/cacert.pem')
+
         assets_text = req_assets_csv.iter_lines()
 
         self.readAssets = csv.reader(assets_text, delimiter=',')
@@ -41,8 +45,10 @@ class ProjectManager:
 
     def getShots(self):
         shots_csv_url= 'https://docs.google.com/spreadsheets/d/1-a2K2BXe1uCPinImkMx5qVsuJcKoylxrWBqQxNl2yA0/pub?gid=1343957549&single=true&output=csv'
-        #req_shots_csv = requests.get(shots_csv_url, verify='C:/apps/python/2.7.8/Lib/site-packages/certifi/cacert.pem')
-        req_shots_csv = requests.get(shots_csv_url, stream=True)
+        try:
+            req_shots_csv = requests.get(shots_csv_url, stream=True)
+        except:
+            req_shots_csv = requests.get(shots_csv_url, verify='C:/apps/python/2.7.8/Lib/site-packages/certifi/cacert.pem')
         shots_text = req_shots_csv.iter_lines()
 
         self.readShots = csv.reader(shots_text, delimiter=',')

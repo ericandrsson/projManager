@@ -1,9 +1,9 @@
 from projManager import projectManager
 from PySide2 import QtWidgets, QtUiTools
-
 import os
 from maya import cmds
 import maya.mel as mel
+import pymel.core as pm
 import maya.OpenMaya as om
 import time
 
@@ -234,7 +234,7 @@ class ProjectManagerUI(QtWidgets.QDialog):
 
     def newMayaProj(self):
         cmds.file(new=True, force=True)
-        mel.eval('setProject \"' + self.itemSel['Maya_File_Path'] + '\"')
+        mel.eval('setProject \"' + self.itemSel['Maya_File_Path'].replace('\\', '/') + '\"')
         for file_rule in cmds.workspace(query=True, fileRuleList=True):
             file_rule_dir = cmds.workspace(fileRuleEntry=file_rule)
             maya_file_rule_dir = os.path.join(self.itemSel['Maya_File_Path'], file_rule_dir)

@@ -3,6 +3,8 @@ from PySide2 import QtWidgets, QtUiTools
 import subprocess
 import os
 import json
+import datetime
+import shelve
 
 from maya import cmds
 import maya.OpenMaya as om
@@ -242,10 +244,8 @@ class projectManagerTools(QtWidgets.QDialog):
                     pEnd = 50
 
                 publishItem = "-root " + i['Name']
-
                 alembicVersionPath = os.path.join(self.currentProj['publishDir'], 'v' + self.currentProj['version'])
-                alembicPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc')
-
+                alembicPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc').replace("/","\\")
                 if not os.path.isfile(alembicPath):
                     if not os.path.exists(alembicVersionPath):
                         os.makedirs(alembicVersionPath)
@@ -258,6 +258,29 @@ class projectManagerTools(QtWidgets.QDialog):
 
                     cmds.AbcExport ( j = command )
 
+                    currentTime = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    shelfPublishFile = shelve.open(os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishData'))
+
+                    publishInfo = {'Artist': self.projectManager.user,
+                                   'Object': i['Name'],
+                                   'Path': alembicPath,
+                                   'Time': currentTime,
+                                   'Version': self.currentProj['version'],
+                                   'Name': self.currentProj['assetName'],
+                                   'Task': self.currentProj['task']}
+
+
+                    shelfPublishFile[str(self.currentProj['assetName'] + '_' + self.currentProj['task'])] = publishInfo
+                    shelfPublishFile.close()
+
+                    shelfPublishFile = shelve.open(os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishData'))
+                    print type(shelfPublishFile)
+                    print shelfPublishFile[str(self.currentProj['assetName'] + '_' + self.currentProj['task'])]
+
+                    '''with open(jsonPublishFile, 'w') as f:
+                        json.dump(publishInfo, f, indent=4)
+                    '''
+
             exitCode = 0
             if outputPaths:
                 for f in outputPaths:
@@ -267,26 +290,6 @@ class projectManagerTools(QtWidgets.QDialog):
                 exitCode+=1
 
             if exitCode == 0:
-
-
-
-                                '''
-                                currentTime = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                                jsonPublishFile = os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishFile.json')
-
-
-
-                                publishInfo = {'Artist': self.projectManager.user,
-                                               'Object': i['Name'],
-                                               'Path': alembicPath,
-                                               'Time': currentTime,
-                                               'Version': self.currentProj['Version']}
-
-
-                                with open(jsonPublishFile, 'w') as f:
-                                    json.dump(publishInfo, f, indent=4)
-                                '''
-
 
                 screenShotPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_publish.jpg')
                 cmds.viewFit()
@@ -386,9 +389,9 @@ class projectManagerTools(QtWidgets.QDialog):
         task = sceneName.split('_')[1]
         version = sceneName.split('v')[1]
 
-        currentProjSplit = projectDir.split(os.path.sep)
-        publishDir = os.path.join(os.path.join('/', *currentProjSplit[0:-3]), 'publish', 'maya')
+        #publishDir = os.path.join(os.path.join('/', *currentProjSplit[0:-3]), 'publish', 'maya')
 
+        publishDir = projectDir.replace("work/maya/","publish/maya")
 
         currentProj = {'projectDir': projectDir, 'filePath': filePath, 'fileName': fileName, 'sceneName': sceneName,
                        'assetName': assetName, 'task': task, 'version': version, 'publishDir': publishDir}
