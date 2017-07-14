@@ -2,6 +2,8 @@ from projManager import projectManager
 from PySide2 import QtWidgets, QtUiTools
 import subprocess
 import os
+import json
+
 from maya import cmds
 import maya.OpenMaya as om
 
@@ -23,11 +25,14 @@ class projectManagerTools(QtWidgets.QDialog):
         self.publish_asset = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'publish_btn')
         self.add_meta = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'meta')
 
-        self.publish_btn = self.projectManagerToolsUI(QtWidgets.QPushButton, '')
+        self.bashcompBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'bashcomp_btn')
+        self.renderPathBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'renderPath_btn')
         self.publishCheckBoxLayout = self.projectManagerToolsUI.findChild(QtWidgets.QVBoxLayout, 'verticalLayout_6')
         self.publishBtn = QtWidgets.QPushButton("Publish")
 
 
+        self.bashcompBtn.clicked.connect(self.bashComp)
+        self.renderPathBtn.clicked.connect(self.projectManager.popRenderPath)
         self.publishBtn.clicked.connect(self.publishAlembic)
         self.add_meta.clicked.connect(self.addMeta)
 
@@ -263,6 +268,26 @@ class projectManagerTools(QtWidgets.QDialog):
 
             if exitCode == 0:
 
+
+
+                                '''
+                                currentTime = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                                jsonPublishFile = os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishFile.json')
+
+
+
+                                publishInfo = {'Artist': self.projectManager.user,
+                                               'Object': i['Name'],
+                                               'Path': alembicPath,
+                                               'Time': currentTime,
+                                               'Version': self.currentProj['Version']}
+
+
+                                with open(jsonPublishFile, 'w') as f:
+                                    json.dump(publishInfo, f, indent=4)
+                                '''
+
+
                 screenShotPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_publish.jpg')
                 cmds.viewFit()
                 cmds.setAttr('defaultRenderGlobals.imageFormat', 8)
@@ -274,8 +299,6 @@ class projectManagerTools(QtWidgets.QDialog):
                 cmds.file(rename=str(newVersion))
                 cmds.file(save=True, type='mayaAscii')
                 self.close()
-
-
 
                 om.MGlobal.displayInfo('All alembics were exported successfully! ')
 

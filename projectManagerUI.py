@@ -57,7 +57,7 @@ class ProjectManagerUI(QtWidgets.QDialog):
             quit()
         else:
             project_folder = self.projectManager.projectFolder
-            defaultDirs = ['io/incoming', 'io/outgoing', 'assets', 'shots','production/docs', 'production/review/assets', 'production/review/shots', 'maps/textures', 'maps/HDRI', 'tools/scripts']
+            defaultDirs = ['io/incoming', 'io/outgoing', 'assets', 'shots','production/docs', 'production/review/assets', 'production/review/shots', 'maps/textures', 'maps/HDRI', 'tools/scripts/nuke', 'tools/scripts/publish']
 
             for directory in defaultDirs:
                 if not os.path.exists(os.path.join(project_folder, directory)):
@@ -229,6 +229,8 @@ class ProjectManagerUI(QtWidgets.QDialog):
                             self.new_file_btn.setEnabled(False)
         except:
             pass
+
+        print self.itemSel
 
     def newMayaProj(self):
         cmds.file(new=True, force=True)
