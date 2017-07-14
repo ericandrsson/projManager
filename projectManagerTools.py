@@ -22,6 +22,8 @@ class projectManagerTools(QtWidgets.QDialog):
 
         self.publish_asset = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'publish_btn')
         self.add_meta = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'meta')
+
+        self.publish_btn = self.projectManagerToolsUI(QtWidgets.QPushButton, '')
         self.publishCheckBoxLayout = self.projectManagerToolsUI.findChild(QtWidgets.QVBoxLayout, 'verticalLayout_6')
         self.publishBtn = QtWidgets.QPushButton("Publish")
 

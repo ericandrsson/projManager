@@ -10,4 +10,8 @@ reload(publishUI)
 ui = publishUI.showUI()
 
 
+from projManager import projectManagerTools
+reload(projectManagerTools)
+ui = projectManagerTools.showUI()
+
 '''
