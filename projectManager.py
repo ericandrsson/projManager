@@ -7,9 +7,9 @@ from maya import cmds
 
 class ProjectManager:
     # Path to project folder.
-    #projectFolder = 'C:/apps/autodesk/2017/Maya2017/plug-ins/camd/scripts/teamProduction/'
     projectName = 'teamProduction'
-    projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
+    projectFolder = '/Users/EricAndersson/Desktop/teamProduction/'
+    #projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
 
     nukePath = '/Applications/Nuke10.5v2/Nuke10.5v2*Non-commercial.app/Nuke10.5v2*Non-commercial'
     nukeBashScript = os.path.join(projectFolder, 'tools', 'scripts','nuke','nukeBash.nknc')

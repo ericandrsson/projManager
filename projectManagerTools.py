@@ -5,6 +5,7 @@ import os
 import json
 import datetime
 import shelve
+import pymel.core as pm
 
 from maya import cmds
 import maya.OpenMaya as om
@@ -17,7 +18,11 @@ class projectManagerTools(QtWidgets.QDialog):
         reload (projectManager)
         self.projectManager = projectManager.ProjectManager()
         self.currentProj = self.getCurrentProj()
+
+        self.publishDB = os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishDB')
+
         self.build_projectManagerToolsUI()
+        self.populateLoader()
         self.populatePublish()
 
     def build_projectManagerToolsUI(self):
@@ -29,21 +34,57 @@ class projectManagerTools(QtWidgets.QDialog):
 
         self.bashcompBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'bashcomp_btn')
         self.renderPathBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'renderPath_btn')
+        self.loaderWidget = self.projectManagerToolsUI.findChild(QtWidgets.QTableWidget, 'loaderTableWidget')
         self.publishCheckBoxLayout = self.projectManagerToolsUI.findChild(QtWidgets.QVBoxLayout, 'verticalLayout_6')
+        self.loadBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'loaditem_btn')
         self.publishBtn = QtWidgets.QPushButton("Publish")
-
 
         self.bashcompBtn.clicked.connect(self.bashComp)
         self.renderPathBtn.clicked.connect(self.projectManager.popRenderPath)
         self.publishBtn.clicked.connect(self.publishAlembic)
         self.add_meta.clicked.connect(self.addMeta)
 
+        self.loaderWidget.clicked.connect(lambda: self.loadBtn.setEnabled(True))
+
+        self.loadBtn.clicked.connect(self.loadPublishFile)
+        self.loadBtn.setEnabled(False)
 
         mainLayout = QtWidgets.QVBoxLayout()
         mainLayout.addWidget(self.projectManagerToolsUI)
         self.setLayout(mainLayout)
 
+    def populateLoader(self):
+        rowPosition = self.loaderWidget.rowCount()
+        publishedItems = shelve.open(self.publishDB)
+        for i in list(publishedItems.values()):
+            self.loaderWidget.insertRow(rowPosition)
+            self.loaderWidget.setItem(rowPosition , 0, QtWidgets.QTableWidgetItem(i['Name']))
+            self.loaderWidget.setItem(rowPosition , 1, QtWidgets.QTableWidgetItem(i['Task']))
+            self.loaderWidget.setItem(rowPosition , 2, QtWidgets.QTableWidgetItem('Geo'))
+            self.loaderWidget.setItem(rowPosition , 3, QtWidgets.QTableWidgetItem(i['Version']))
+            self.loaderWidget.setItem(rowPosition , 4, QtWidgets.QTableWidgetItem(i['Artist']))
+            self.loaderWidget.setItem(rowPosition , 5, QtWidgets.QTableWidgetItem(i['Time']))
+        publishedItems.close()
 
+    def loadPublishFile(self):
+        selectedRow = self.loaderWidget.currentRow()
+        publishedItems = shelve.open(self.publishDB)
+
+        for i in list(publishedItems.values()):
+            # Checks for name and time.
+            if self.loaderWidget.item(selectedRow,0).text() == i['Name'] and self.loaderWidget.item(selectedRow,5).text() == i['Time']:
+                self.publishedItemSel = i
+        publishedItems.close()
+
+        sceneReferenceList = cmds.file( q=True, l=True )
+
+        if not self.publishedItemSel['Path'] in sceneReferenceList:
+            cmds.file(self.publishedItemSel['Path'], r=True)
+            om.MGlobal.displayInfo("Successfully referenced file.")
+            self.close()
+
+        else:
+            om.MGlobal.displayError('Reference already exists in scene.')
 
     def populatePublish(self):
         self.publishBtn.setEnabled(False)
@@ -88,9 +129,6 @@ class projectManagerTools(QtWidgets.QDialog):
             self.publishBtn.setEnabled(True)
 
         self.publishCheckBoxLayout.addWidget(self.publishBtn)
-
-
-
 
     def openProjectDir(self):
         projectdir = os.path.dirname(cmds.file(q=True, sn=True))
@@ -245,7 +283,8 @@ class projectManagerTools(QtWidgets.QDialog):
 
                 publishItem = "-root " + i['Name']
                 alembicVersionPath = os.path.join(self.currentProj['publishDir'], 'v' + self.currentProj['version'])
-                alembicPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc').replace("/","\\")
+                alembicPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_' + i['Name'] + '_publish.abc')
+                #.replace("/","\\")
                 if not os.path.isfile(alembicPath):
                     if not os.path.exists(alembicVersionPath):
                         os.makedirs(alembicVersionPath)
@@ -258,8 +297,9 @@ class projectManagerTools(QtWidgets.QDialog):
 
                     cmds.AbcExport ( j = command )
 
+                    screenShotPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_publish.jpg')
                     currentTime = str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                    shelfPublishFile = shelve.open(os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishData'))
+                    publishDB = shelve.open(self.publishDB)
 
                     publishInfo = {'Artist': self.projectManager.user,
                                    'Object': i['Name'],
@@ -267,19 +307,12 @@ class projectManagerTools(QtWidgets.QDialog):
                                    'Time': currentTime,
                                    'Version': self.currentProj['version'],
                                    'Name': self.currentProj['assetName'],
-                                   'Task': self.currentProj['task']}
+                                   'Task': self.currentProj['task'],
+                                   'ScreenShotPath': screenShotPath}
 
 
-                    shelfPublishFile[str(self.currentProj['assetName'] + '_' + self.currentProj['task'])] = publishInfo
-                    shelfPublishFile.close()
-
-                    shelfPublishFile = shelve.open(os.path.join(self.projectManager.projectFolder, 'tools', 'scripts', 'publish', 'publishData'))
-                    print type(shelfPublishFile)
-                    print shelfPublishFile[str(self.currentProj['assetName'] + '_' + self.currentProj['task'])]
-
-                    '''with open(jsonPublishFile, 'w') as f:
-                        json.dump(publishInfo, f, indent=4)
-                    '''
+                    publishDB[str(self.currentProj['assetName'] + '_' + self.currentProj['task'])] = publishInfo
+                    publishDB.close()
 
             exitCode = 0
             if outputPaths:
@@ -290,8 +323,6 @@ class projectManagerTools(QtWidgets.QDialog):
                 exitCode+=1
 
             if exitCode == 0:
-
-                screenShotPath = os.path.join(alembicVersionPath, self.currentProj['sceneName'] + '_publish.jpg')
                 cmds.viewFit()
                 cmds.setAttr('defaultRenderGlobals.imageFormat', 8)
                 cmds.playblast(completeFilename=screenShotPath, forceOverwrite=True, format='image', width=512, height=512,
@@ -315,7 +346,6 @@ class projectManagerTools(QtWidgets.QDialog):
 
         else:
             om.MGlobal.displayError('No items selected.')
-
 
     def addMeta(self):
         tagItems = cmds.ls(selection = True)
@@ -378,7 +408,7 @@ class projectManagerTools(QtWidgets.QDialog):
                 cmds.setAttr(item + '.outlinerColorB', 0.0)
 
         om.MGlobal.displayInfo(noItems + ' items tagged with metadata successfully.')
-        self.close()
+        self.populatePublish()
 
     def getCurrentProj(self):
         projectDir = cmds.workspace(query=True, rootDirectory=True)
