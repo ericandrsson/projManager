@@ -2,6 +2,7 @@ import os
 import csv
 import requests
 import getpass
+import logging
 from maya import cmds
 
 
@@ -20,8 +21,9 @@ class ProjectManager:
 
 
     def __init__(self):
-        #self.user = getpass.getuser()
-        self.user = 'Eric'
+        logging.getLogger("requests").setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        self.user = getpass.getuser()
 
     def getAssets(self):
         # Fetches and reads the assets csv file.
@@ -59,6 +61,25 @@ class ProjectManager:
             self.shot = {'Shot_Code': row[0], 'Step': row[1], 'Status': row[2], 'Assigned_To': row[3], 'Bid': row[4], 'BidPercent': row[5]}
             shotList.append(self.shot)
         return shotList
+
+    def getFrameRange(self, shot):
+        # Fetches and reads the frameRange csv file.
+        frameRange_csv_url = 'https://docs.google.com/spreadsheets/d/1-a2K2BXe1uCPinImkMx5qVsuJcKoylxrWBqQxNl2yA0/pub?gid=1408211990&single=true&output=csv'
+        try:
+            req_frameRange_csv = requests.get(frameRange_csv_url, stream=True)
+        except:
+            req_frameRange_csv = requests.get(frameRange_csv_url, verify='C:/apps/python/2.7.8/Lib/site-packages/certifi/cacert.pem')
+
+        frameRange_text = req_frameRange_csv.iter_lines()
+        self.readFrameRange = csv.reader(frameRange_text, delimiter=',')
+        # ------------------------------------------------
+        next(self.readFrameRange, None)
+        shotBreakDownList = []
+        for row in self.readFrameRange:
+            shotBreakDown = {'Shot_Code': row[0], 'FrameRange': row[1]}
+            shotBreakDownList.append(shotBreakDown)
+        return shotBreakDownList
+
 
     # RENDER PREP TOOLS -----------------------------------------------------------------------
     def popRenderPath(self):
