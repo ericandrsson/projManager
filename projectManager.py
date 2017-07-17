@@ -9,7 +9,6 @@ from maya import cmds
 class ProjectManager:
     # Path to project folder.
     projectName = 'teamProduction'
-    projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
     projectFolder = '/Users/EricAndersson/Desktop/teamProduction/'
     #projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
 
