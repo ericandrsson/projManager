@@ -152,7 +152,6 @@ class projectManagerTools(QtWidgets.QDialog):
 
                             elif itemType == 'Geometry':
                                 try:
-                                    print 'lala'
                                     item = cmds.group(name = (self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'))
                                     if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
                                         exitCode = 0
@@ -370,9 +369,9 @@ class projectManagerTools(QtWidgets.QDialog):
             # Checks for all files that matches
             for renderLayer in os.listdir(imagesVersionDir):
                 renderFilesList = []
-                fakeList = []
+                fileCount = []
                 totalFileSize = 0
-                totalFilesAmount = 0
+
                 if not renderLayer.startswith('.'):
                     for renderFile in os.listdir(os.path.join(imagesVersionDir, renderLayer)):
                         if renderFile.startswith(self.currentProj['sceneName'][:-5] + '_' + renderLayer + '_v' + self.currentProj['version']):
@@ -380,14 +379,13 @@ class projectManagerTools(QtWidgets.QDialog):
                             totalFileSize += os.path.getsize(os.path.join(imagesVersionDir, renderLayer, renderFile))
                             renderFileExt = renderFile[-3:]
                             renderFileList  = [renderFile, renderFileSize, renderFileExt]
-                            totalFilesAmount +=1
                             renderFilesList.append(renderFileList)
+                            fileCount.append(int(renderFile[-8:-4]))
 
                     if renderFilesList:
-                        fileSizeMean = int(totalFileSize/totalFilesAmount)
                         fileFrameRange = str(renderFilesList[0][0][-8:-4]) + '-' + str(renderFilesList[-1][0][-8:-4])
                         renderLayerPath = os.path.join(imagesVersionDir, renderLayer)
-                        renderLayerDict = {'renderLayerName': renderLayer, 'Files': renderFilesList, 'Mean': fileSizeMean, 'fileFrameRange': fileFrameRange, 'renderLayerPath': renderLayerPath}
+                        renderLayerDict = {'renderLayerName': renderLayer, 'Files': renderFilesList, 'fileFrameRange': fileFrameRange, 'renderLayerPath': renderLayerPath, 'fileCount': fileCount}
                         self.renderLayersList.append(renderLayerDict)
                     else:
                         # Adds renderLayers that are not matching format
@@ -418,7 +416,6 @@ class projectManagerTools(QtWidgets.QDialog):
             self.renderTab.setEnabled(False)
 
     def publishRenders(self):
-
         selectedIndexes = self.rendersPublishWidget.selectedIndexes()
         selectedRowList = ""
 
@@ -429,6 +426,8 @@ class projectManagerTools(QtWidgets.QDialog):
         exitCode = 0
         badFramesEXR = []
         badFramesBytes = []
+        incorrectFrameRange = []
+        missingFrames = []
         renderLayersPublishList = []
 
         # Gets the framerange
@@ -436,32 +435,40 @@ class projectManagerTools(QtWidgets.QDialog):
         for item in shotBreakDown:
             if item['Shot_Code'] == self.currentProj['name']:
                 shotFrameRange = item['FrameRange']
-                firstFrameRange = str(item['FrameRange']).split('-')[0]
-                lastFrameRange = str(item['FrameRange']).split('-')[-1]
+                shotFrameRangeStart = str(item['FrameRange']).split('-')[0]
+                shotFrameRangeEnd = str(item['FrameRange']).split('-')[-1]
 
 
         # If contains string then we know what is selected.
         for renderLayer in self.renderLayersList:
             if renderLayer['renderLayerName'] in selectedRowList:
                 renderDst = os.path.join(self.currentProj['publishDir'], 'v' + self.currentProj['version'], renderLayer['renderLayerName'])
+                frameStart = int(renderLayer['Files'][0][0][-8:-4])
+                frameEnd = int(renderLayer['Files'][-1][0][-8:-4])
+
+                totalPossibleFramesList = []
+                totalFramesList = []
+
+                # If frame range is not matching shot append list with info.
+                if frameStart != shotFrameRangeStart and frameEnd != shotFrameRangeEnd:
+                    incorrectFrameRange.append([renderLayer['renderLayerName'], frameStart, frameEnd])
+
+                for i in range(frameStart, frameEnd+1):
+                    totalPossibleFramesList.append(i)
+
+
+                # Gets the missing frames using difference
+                framesDifference = (set(totalPossibleFramesList).difference(renderLayer['fileCount']))
+                for i in framesDifference:
+                    missingFrames.append(renderLayer['Files'][0][0][0:-8] + str(i).zfill(4) + '.' + str(renderLayer['Files'][0][2]))
 
                 #renderFile[0], renderFileSize[1], renderFileExt[2]
                 for frame in renderLayer['Files']:
                     if frame[2] != 'exr':
                         badFramesEXR.append(frame)
+
                     if int(frame[1]) < 100:
                         badFramesBytes.append(frame)
-
-                firstFileFrame =  int(renderLayer['Files'][0][0][-8:-4])
-                lastFileFrame = int(renderLayer['Files'][-1][0][-8:-4])
-
-                for i in range(firstFileFrame, lastFileFrame+1):
-                    print i
-
-
-                if firstFileFrame != firstFrameRange and lastFileFrame != lastFrameRange:
-                    inCorrectFrameRange = True
-
 
                 # Checks if framerange is matching
                 renderLayersPublishList.append([renderLayer['renderLayerPath'], renderDst])
@@ -474,26 +481,35 @@ class projectManagerTools(QtWidgets.QDialog):
                 popupMessage.setWindowTitle('Render Publish Warning')
                 popupMessage.setText('One or more problems have been found with the files you are trying to publish.\nPress SHOW DETAILS to get more info.\nPress YES to proceed with publish.')
 
-                if inCorrectFrameRange:
-                    inCorrectFrameRangeWarning = 'Rendered files does not match shot frame range.\nShot: ({}-{})\nFiles: ({}-{})\n'.format(firstFrameRange, lastFrameRange, firstFileFrame, lastFileFrame)
+                if incorrectFrameRange:
+                    inCorrectFrameRangeWarning = 'Render-layers containing frames with wrong frame-range.\nShot: {}-{}\n'.format(shotFrameRangeStart, shotFrameRangeEnd)
+                    for i in incorrectFrameRange:
+                        inCorrectFrameRangeWarning += (str(i[0]) + ': ' + str(i[1]) + '-' + str(i[2]) + '\n')
                 else:
                     inCorrectFrameRangeWarning = ''
 
+                if missingFrames:
+                    missingFramesWarning = '\nMissing Frames:\n'
+                    for i in missingFrames:
+                        missingFramesWarning += (str(i) + '\n')
+                else:
+                    missingFramesWarning = ''
+
                 if badFramesEXR:
-                    badFramesEXRWarning = '\nFiles that are not EXR:\n'
+                    badFramesEXRWarning = '\nFrames that are not EXR:\n'
                     for i in badFramesEXR:
-                        badFramesEXRWarning += (str(i[0]) + '\r\n')
+                        badFramesEXRWarning += (str(i[0]) + '\n')
                 else:
                     badFramesEXRWarning = ''
 
                 if badFramesBytes:
                     badFramesBytesWarning = "\nFrames under 100 bytes:\n"
                     for i in badFramesBytes:
-                        badFramesBytesWarning += (str(i[0]) + ', ' + str(i[1]) + ' bytes' + '\r\n')
+                        badFramesBytesWarning += (str(i[0]) + ', ' + str(i[1]) + ' bytes' + '\n')
                 else:
                     badFramesBytesWarning = ''
 
-                popupMessage.setDetailedText(inCorrectFrameRangeWarning + badFramesEXRWarning + badFramesBytesWarning)
+                popupMessage.setDetailedText(inCorrectFrameRangeWarning + missingFramesWarning + badFramesEXRWarning + badFramesBytesWarning)
                 popupMessage.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Cancel)
                 popupMessageRet = popupMessage.exec_()
 
@@ -512,7 +528,7 @@ class projectManagerTools(QtWidgets.QDialog):
                     except:
                         exitCode = 1
 
-                if exitCode == 10:
+                if exitCode == 0:
                     # Copies the maya file.
                     shutil.copy(self.currentProj['filePath'], self.currentProj['publishDir'])
                     # Takes the current version, pluses 1, filles it with zeros and conc back to correct filepath.
@@ -529,7 +545,6 @@ class projectManagerTools(QtWidgets.QDialog):
 
             else:
                 pass
-
 
     def openProjectDir(self):
         projectdir = os.path.dirname(cmds.file(q=True, sn=True))
