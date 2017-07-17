@@ -130,7 +130,7 @@ class projectManagerTools(QtWidgets.QDialog):
 
                 if objType == 'mesh' or objType =='camera' or objType =='transform':
                     if objType == 'mesh':
-                        itemType = 'geometry'
+                        itemType = 'Geometry'
                     elif objType == 'camera':
                         itemType = 'camera'
                     elif objType == 'transform':
@@ -152,12 +152,12 @@ class projectManagerTools(QtWidgets.QDialog):
 
                             elif itemType == 'Geometry':
                                 try:
+                                    print 'lala'
                                     item = cmds.group(name = (self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'))
                                     if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
                                         exitCode = 0
                                 except:
                                     pass
-                                    # om.MGlobal.displayError('Error trying to auto-group. [{}_{}_group already exists?]'.format(self.currentProj['name'], self.currentProj['task']))
 
                             else:
                                 om.MGlobal.displayError('The object is not valid for publish.')
@@ -364,12 +364,13 @@ class projectManagerTools(QtWidgets.QDialog):
         try:
             imagesVersionDir = os.path.join(self.currentProj['projectDir'], 'images', 'v' + self.currentProj['version'])
             currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
-
+            failedLayersList = []
             self.renderLayersList = []
 
             # Checks for all files that matches
             for renderLayer in os.listdir(imagesVersionDir):
                 renderFilesList = []
+                fakeList = []
                 totalFileSize = 0
                 totalFilesAmount = 0
                 if not renderLayer.startswith('.'):
@@ -382,28 +383,43 @@ class projectManagerTools(QtWidgets.QDialog):
                             totalFilesAmount +=1
                             renderFilesList.append(renderFileList)
 
-                    fileSizeMean = int(totalFileSize/totalFilesAmount)
-                    fileFrameRange = str(renderFilesList[0][0][-8:-4]) + '-' + str(renderFilesList[-1][0][-8:-4])
-                    renderLayerPath = os.path.join(imagesVersionDir, renderLayer)
-                    renderLayerDict = {'renderLayerName': renderLayer, 'Files': renderFilesList, 'Mean': fileSizeMean, 'fileFrameRange': fileFrameRange, 'renderLayerPath': renderLayerPath}
-                    self.renderLayersList.append(renderLayerDict)
+                    if renderFilesList:
+                        fileSizeMean = int(totalFileSize/totalFilesAmount)
+                        fileFrameRange = str(renderFilesList[0][0][-8:-4]) + '-' + str(renderFilesList[-1][0][-8:-4])
+                        renderLayerPath = os.path.join(imagesVersionDir, renderLayer)
+                        renderLayerDict = {'renderLayerName': renderLayer, 'Files': renderFilesList, 'Mean': fileSizeMean, 'fileFrameRange': fileFrameRange, 'renderLayerPath': renderLayerPath}
+                        self.renderLayersList.append(renderLayerDict)
+                    else:
+                        # Adds renderLayers that are not matching format
+                        failedLayersList.append(renderLayer)
 
-            for renderLayer in self.renderLayersList:
-                # Looks at first and last frame and grabs its frame-range.
-                #fileFrameRange = str(renderLayer['Files'][0][0][-8:-4]) + '-' + str(renderLayer['Files'][-1][0][-8:-4])
-                rowPosition = self.rendersPublishWidget.rowCount()
-                self.rendersPublishWidget.insertRow(rowPosition)
-                self.rendersPublishWidget.setItem(rowPosition , 0, QtWidgets.QTableWidgetItem(renderLayer['renderLayerName']))
-                self.rendersPublishWidget.setItem(rowPosition , 1, QtWidgets.QTableWidgetItem(self.currentProj['task']))
-                self.rendersPublishWidget.setItem(rowPosition , 2, QtWidgets.QTableWidgetItem(self.currentProj['version']))
-                self.rendersPublishWidget.setItem(rowPosition , 3, QtWidgets.QTableWidgetItem(renderLayer['fileFrameRange']))
+
+            if self.renderLayersList:
+                for renderLayer in self.renderLayersList:
+                    # Looks at first and last frame and grabs its frame-range.
+                    rowPosition = self.rendersPublishWidget.rowCount()
+                    self.rendersPublishWidget.insertRow(rowPosition)
+                    self.rendersPublishWidget.setItem(rowPosition , 0, QtWidgets.QTableWidgetItem(renderLayer['renderLayerName']))
+                    self.rendersPublishWidget.setItem(rowPosition , 1, QtWidgets.QTableWidgetItem(self.currentProj['task']))
+                    self.rendersPublishWidget.setItem(rowPosition , 2, QtWidgets.QTableWidgetItem(self.currentProj['version']))
+                    self.rendersPublishWidget.setItem(rowPosition , 3, QtWidgets.QTableWidgetItem(renderLayer['fileFrameRange']))
+            '''
+            if failedLayersList:
+                failedRenderText = ""
+                for i in failedLayersList:
+                    if i == failedLayersList[-1]:
+                        failedRenderText += str(i)
+                    else:
+                        failedRenderText += str(i) + ', '
+                om.MGlobal.displayError('Failed to add {}. Filenames does not match renderLayer.'.format(failedRenderText.upper()))
+            '''
+
         except:
             self.renderTab.setEnabled(False)
 
     def publishRenders(self):
 
         selectedIndexes = self.rendersPublishWidget.selectedIndexes()
-
         selectedRowList = ""
 
         # Takes the data and turns it into string.
@@ -412,76 +428,107 @@ class projectManagerTools(QtWidgets.QDialog):
 
         exitCode = 0
         badFramesEXR = []
-        badFramesMean = []
+        badFramesBytes = []
         renderLayersPublishList = []
+
+        # Gets the framerange
+        shotBreakDown = self.projectManager.getFrameRange(self.currentProj['name'])
+        for item in shotBreakDown:
+            if item['Shot_Code'] == self.currentProj['name']:
+                shotFrameRange = item['FrameRange']
+                firstFrameRange = str(item['FrameRange']).split('-')[0]
+                lastFrameRange = str(item['FrameRange']).split('-')[-1]
+
 
         # If contains string then we know what is selected.
         for renderLayer in self.renderLayersList:
             if renderLayer['renderLayerName'] in selectedRowList:
                 renderDst = os.path.join(self.currentProj['publishDir'], 'v' + self.currentProj['version'], renderLayer['renderLayerName'])
+
                 #renderFile[0], renderFileSize[1], renderFileExt[2]
                 for frame in renderLayer['Files']:
                     if frame[2] != 'exr':
                         badFramesEXR.append(frame)
-                    if frame[1] < renderLayer['Mean']:
-                        badFramesMean.append(frame)
+                    if int(frame[1]) < 100:
+                        badFramesBytes.append(frame)
+
+                firstFileFrame =  int(renderLayer['Files'][0][0][-8:-4])
+                lastFileFrame = int(renderLayer['Files'][-1][0][-8:-4])
+
+                for i in range(firstFileFrame, lastFileFrame+1):
+                    print i
+
+
+                if firstFileFrame != firstFrameRange and lastFileFrame != lastFrameRange:
+                    inCorrectFrameRange = True
+
+
+                # Checks if framerange is matching
                 renderLayersPublishList.append([renderLayer['renderLayerPath'], renderDst])
 
-        if badFramesEXR or badFramesMean:
-            popupMessage = QtWidgets.QMessageBox()
-            popupMessage.setWindowTitle('WARNING')
-            popupMessage.setText('One or more frames that you are trying to publish are either not filetype EXR or fall below the mean bytes value.\n\nPress OPEN to get more info.\nPress YES to proceed with publish.')
-            popupMessage.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Cancel | QtWidgets.QMessageBox.Open)
-            popupMessageRet = popupMessage.exec_()
+        # If there are items in the list to be published, continue
+        if renderLayersPublishList:
+            # If there are bad frames ie not EXR or below 100 bytes, warn user and prompt.
+            if badFramesEXR or badFramesBytes:
+                popupMessage = QtWidgets.QMessageBox()
+                popupMessage.setWindowTitle('Render Publish Warning')
+                popupMessage.setText('One or more problems have been found with the files you are trying to publish.\nPress SHOW DETAILS to get more info.\nPress YES to proceed with publish.')
 
-            if popupMessageRet == popupMessage.Yes:
+                if inCorrectFrameRange:
+                    inCorrectFrameRangeWarning = 'Rendered files does not match shot frame range.\nShot: ({}-{})\nFiles: ({}-{})\n'.format(firstFrameRange, lastFrameRange, firstFileFrame, lastFileFrame)
+                else:
+                    inCorrectFrameRangeWarning = ''
+
+                if badFramesEXR:
+                    badFramesEXRWarning = '\nFiles that are not EXR:\n'
+                    for i in badFramesEXR:
+                        badFramesEXRWarning += (str(i[0]) + '\r\n')
+                else:
+                    badFramesEXRWarning = ''
+
+                if badFramesBytes:
+                    badFramesBytesWarning = "\nFrames under 100 bytes:\n"
+                    for i in badFramesBytes:
+                        badFramesBytesWarning += (str(i[0]) + ', ' + str(i[1]) + ' bytes' + '\r\n')
+                else:
+                    badFramesBytesWarning = ''
+
+                popupMessage.setDetailedText(inCorrectFrameRangeWarning + badFramesEXRWarning + badFramesBytesWarning)
+                popupMessage.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Cancel)
+                popupMessageRet = popupMessage.exec_()
+
+                if popupMessageRet == popupMessage.Yes:
+                    errorCode = 0
+
+                elif popupMessageRet == popupMessage.Cancel:
+                    errorCode = 1
+
+            # Checks if errorCode suceeded and if there are items in list to publish
+            if errorCode == 0:
                 exitCode = 0
+                for r in renderLayersPublishList:
+                    try:
+                        shutil.copytree(r[0], r[1])
+                    except:
+                        exitCode = 1
 
-            elif popupMessageRet == popupMessage.Open:
-                logDir = self.projectManager.userAppDir + 'tmp.txt'
-                with open(str(logDir), "w") as text_file:
-                    if badFramesEXR:
-                        text_file.write('Wrong filetype:\n')
-                        for i in badFramesEXR:
-                            text_file.write(str(i[0]) + '\n')
-                    if badFramesMean:
-                        text_file.write('\nFrames with bytes under mean value:\n')
-                        for i in badFramesMean:
-                            text_file.write(str(i[0]) + ', ' + str(i[1]) + ' bytes' + '\n')
+                if exitCode == 10:
+                    # Copies the maya file.
+                    shutil.copy(self.currentProj['filePath'], self.currentProj['publishDir'])
+                    # Takes the current version, pluses 1, filles it with zeros and conc back to correct filepath.
+                    newVersion = (self.currentProj['fileName'][:-6] + str(int(self.currentProj['version']) + 1).zfill(3))
+                    cmds.file(rename=str(newVersion))
+                    cmds.file(save=True, type='mayaAscii')
+                    self.close()
+                    om.MGlobal.displayInfo('*** Success publishing renders ***')
+                else:
+                    om.MGlobal.displayError('*** Failed copying files *** ')
 
-                try:
-                    os.startfile(logDir)
-                except:
-                    subprocess.call(["open", logDir])
+            elif errorCode == 1:
+                pass
 
-                exitCode = 1
-
-            elif popupMessageRet == popupMessage.Cancel:
-                exitCode = 1
-
-
-        # exitCode Codes: 1: Not EXR. 2. Under Mean. 3. Under 100KB. 4. Wrong Framerange.s
-        if exitCode == 0:
-            for r in renderLayersPublishList:
-                shutil.copytree(r[0], r[1])
-
-            '''
-            If folder already exists yada yada check that. oK?
-
-            '''
-            # Takes the current version, pluses 1, filles it with zeros and conc back to correct filepath.
-            newVersion = (self.currentProj['fileName'][:-6] + str(int(self.currentProj['version']) + 1).zfill(3))
-            cmds.file(rename=str(newVersion))
-            cmds.file(save=True, type='mayaAscii')
-            self.close()
-
-            om.MGlobal.displayInfo('Sucess! ')
-
-        elif exitCode == 1:
-            pass
-
-        else:
-            om.MGlobal.displayError('Something went wrong. Please contact your suporvisor.')
+            else:
+                pass
 
 
     def openProjectDir(self):
@@ -647,6 +694,13 @@ class projectManagerTools(QtWidgets.QDialog):
                 currentProj['projType'] = 'shot'
 
         return (currentProj)
+
+    def popupMessage(self, title, message):
+        popupMessage = QtWidgets.QMessageBox()
+        popupMessage.setWindowTitle(title)
+        popupMessage.setText(message)
+        popupMessage.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        popupMessage = popupMessage.exec_()
 
 def showUI():
     ui = projectManagerTools()
