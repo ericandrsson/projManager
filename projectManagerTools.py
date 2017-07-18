@@ -423,7 +423,7 @@ class projectManagerTools(QtWidgets.QDialog):
         for i in selectedIndexes:
             selectedRowList += i.data() + ' '
 
-        exitCode = 0
+        errorCode = 0
         badFramesEXR = []
         badFramesBytes = []
         incorrectFrameRange = []
@@ -521,7 +521,11 @@ class projectManagerTools(QtWidgets.QDialog):
 
             # Checks if errorCode suceeded and if there are items in list to publish
             if errorCode == 0:
-                exitCode = 0
+                exitCode = 1
+
+                pathExists = [i[1].replace("/", "\\") for i in renderLayersPublishList if os.path.exists(i[1])]
+                print pathExists
+
                 for r in renderLayersPublishList:
                     try:
                         shutil.copytree(r[0], r[1])
@@ -536,9 +540,9 @@ class projectManagerTools(QtWidgets.QDialog):
                     cmds.file(rename=str(newVersion))
                     cmds.file(save=True, type='mayaAscii')
                     self.close()
-                    om.MGlobal.displayInfo('*** Success publishing renders ***')
+                    self.popupMessage('Sucess', 'Publishing renders finished successfully!')
                 else:
-                    om.MGlobal.displayError('*** Failed copying files *** ')
+                    self.popupMessage('ERROR', 'Failed publishing renders')
 
             elif errorCode == 1:
                 pass
@@ -679,10 +683,16 @@ class projectManagerTools(QtWidgets.QDialog):
                 shotBreakDown = self.projectManager.getFrameRange(self.currentProj['name'])
                 for item in shotBreakDown:
                     if item['Shot_Code'] == self.currentProj['name']:
-                        cmds.playbackOptions(minTime=(str(item['FrameRange'])).split('-')[0])
-                        cmds.playbackOptions(animationStartTime=(str(item['FrameRange'])).split('-')[0])
-                        cmds.playbackOptions(maxTime=(str(item['FrameRange'])).split('-')[1])
-                        cmds.playbackOptions(animationEndTime=(str(item['FrameRange'])).split('-')[1])
+                        startFrame = str(item['FrameRange']).split('-')[0]
+                        endFrame = str(item['FrameRange']).split('-')[1]
+
+                        cmds.playbackOptions(minTime=(startFrame))
+                        cmds.playbackOptions(animationStartTime=(startFrame))
+                        cmds.playbackOptions(maxTime=(endFrame))
+                        cmds.playbackOptions(animationEndTime=(endFrame))
+                        cmds.setAttr("defaultRenderGlobals.startFrame", startFrame)
+                        cmds.setAttr("defaultRenderGlobals.endFrame", endFrame)
+
             else:
                 pass
         except:

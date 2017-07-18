@@ -71,15 +71,25 @@ class ProjectManagerUI(QtWidgets.QDialog):
         # If no folder for asset exists.
         asset_subFolders = ['art', 'model', 'rig', 'surface']
         asset_task_subFolders = ['work', 'review', 'publish']
-        asset_task_software_subFolders = ['maya']
+        asset_task_software_subFolders = ['maya', 'houdini', 'nuke']
 
         for asset in self.assets:
             assetDir = os.path.join(self.projectManager.projectFolder, 'assets', asset['Type'], asset['Name'])
-            for asset_subFolder in asset_subFolders:
+            if asset['Type'] == 'prepro':
                 for asset_task_subFolder in asset_task_subFolders:
-                    for asset_task_software_subFolder in asset_task_software_subFolders:
-                        if not os.path.exists(os.path.join(assetDir, asset_subFolder, asset_task_subFolder, asset_task_software_subFolder)):
-                            os.makedirs(os.path.join(assetDir, asset_subFolder, asset_task_subFolder, asset_task_software_subFolder))
+                    if not os.path.exists(os.path.join(assetDir, 'art', asset_task_subFolder, 'photoshop')):
+                        os.makedirs(os.path.join(assetDir, 'art', asset_task_subFolder, 'photoshop'))
+            else:
+                for asset_subFolder in asset_subFolders:
+                    for asset_task_subFolder in asset_task_subFolders:
+                        for asset_task_software_subFolder in asset_task_software_subFolders:
+                            if asset_subFolder != 'art':
+                                if not os.path.exists(os.path.join(assetDir, asset_subFolder, asset_task_subFolder, asset_task_software_subFolder)):
+                                    os.makedirs(os.path.join(assetDir, asset_subFolder, asset_task_subFolder, asset_task_software_subFolder))
+                            else:
+                                if not os.path.exists(os.path.join(assetDir, asset_subFolder, asset_task_subFolder, 'photoshop')):
+                                    os.makedirs(os.path.join(assetDir, asset_subFolder, asset_task_subFolder, 'photoshop'))
+
 
             # Checks for latest version and adds to dictiory
             self.asset_maya_path = os.path.join(self.projectManager.projectFolder, 'assets', asset['Type'], asset['Name'], asset['Task'], 'work', 'maya')
@@ -138,12 +148,12 @@ class ProjectManagerUI(QtWidgets.QDialog):
             # Populates my tasks with assigned assets
             for asset in self.assets:
                 if asset['Assigned_To'] in str(self.projectManager.user):
-                    if asset['Version']:
-                        self.my_tasks_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')' + ' - ' + 'v' + asset['Version'])
+                    if not asset['Task'] == 'art':
+                        if asset['Version']:
+                            self.my_tasks_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')' + ' - ' + 'v' + asset['Version'])
 
-                    else:
-                        self.my_tasks_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')')
-
+                        else:
+                            self.my_tasks_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')')
 
             # Populates my tasks with assigned assets
             for shot in self.shots:
