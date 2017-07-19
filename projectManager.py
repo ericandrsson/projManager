@@ -12,8 +12,9 @@ class ProjectManager:
     #projectFolder = '/Users/EricAndersson/Desktop/teamProduction/'
     projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
 
-    nukePath = '/Applications/Nuke10.5v2/Nuke10.5v2*Non-commercial.app/Nuke10.5v2*Non-commercial'
-    nukeBashScript = os.path.join(projectFolder, 'tools', 'scripts','nuke','nukeBash.nknc')
+    #nukePath = '/Applications/Nuke10.5v2/Nuke10.5v2*Non-commercial.app/Nuke10.5v2*Non-commercial'
+    nukePath = 'C:\\apps\\nuke\\10.5v1\\Nuke10.5.exe'
+    nukeBashScript = os.path.join(projectFolder, 'tools', 'scripts','nuke','nukeBash.nk')
 
     #Path to userAppDir folders.
     userAppDir = cmds.internalVar(userAppDir=True)
@@ -79,20 +80,3 @@ class ProjectManager:
             shotBreakDown = {'Shot_Code': row[0], 'FrameRange': row[1]}
             shotBreakDownList.append(shotBreakDown)
         return shotBreakDownList
-
-
-    # RENDER PREP TOOLS -----------------------------------------------------------------------
-    def popRenderPath(self):
-        # Get version ID
-        fileName = cmds.file(q=True, sn=True)[cmds.file(q=True, sn=True).rfind('/')+1:cmds.file(q=True, sn=True).rfind('.')]
-        version = fileName.split("_v")[1]
-        sceneName = fileName.split("_v")[0]
-
-        #Populate Render globals
-        try:
-            cmds.setAttr("vraySettings.fileNamePrefix", 'v<Version>/<Layer>/'+ sceneName + '_<Layer>_v<Version>', type="string")
-            cmds.setAttr("defaultRenderGlobals.renderVersion", version, type="string")
-            cmds.setAttr ("vraySettings.imgOpt_exr_autoDataWindow", 1)
-            cmds.setAttr ("vraySettings.imgOpt_exr_multiPart", 1)
-        except:
-            pass

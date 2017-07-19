@@ -7,8 +7,7 @@ import datetime
 import shelve
 import pymel.core as pm
 import shutil
-
-from maya import cmds
+from maya import cmds ,OpenMayaUI
 import maya.OpenMaya as om
 
 
@@ -30,11 +29,10 @@ class projectManagerTools(QtWidgets.QDialog):
     def build_projectManagerToolsUI(self):
         loader = QtUiTools.QUiLoader()
         self.projectManagerToolsUI = loader.load(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'UI', 'projectManagerTools.ui'))
-
         # Find children
         self.publish_asset = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'publish_btn')
         self.cancelbtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'cancel_btn')
-        self.bashcompBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'bashcomp_btn')
+        self.quickDailyBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'quickDaily_btn')
         self.renderPathBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'renderPath_btn')
         self.syncFrameRangeBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'syncFrameRange_btn')
         self.loaderWidget = self.projectManagerToolsUI.findChild(QtWidgets.QTableWidget, 'loaderTableWidget')
@@ -48,11 +46,12 @@ class projectManagerTools(QtWidgets.QDialog):
         self.publishRenderBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'publishRender_btn')
         self.addMetaBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'plusMeta_btn')
         self.removeMetaBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'minusMeta_btn')
+        self.openImagesFolderBtn = self.projectManagerToolsUI.findChild(QtWidgets.QPushButton, 'openImagesFolder_btn')
 
 
         # Connections
-        self.bashcompBtn.clicked.connect(self.bashComp)
-        self.renderPathBtn.clicked.connect(self.projectManager.popRenderPath)
+        self.quickDailyBtn.clicked.connect(self.quickDaily)
+        self.renderPathBtn.clicked.connect(self.popRenderPath)
         self.syncFrameRangeBtn.clicked.connect(self.syncFrameRange)
         self.publishAlembicBtn.clicked.connect(self.publishAlembic)
         self.publishRenderBtn.clicked.connect(self.publishRenders)
@@ -62,6 +61,7 @@ class projectManagerTools(QtWidgets.QDialog):
         self.loadBtn.clicked.connect(self.loadPublishFile)
         self.loaderWidget.clicked.connect(lambda: self.loadBtn.setEnabled(True))
         self.alembicPublishWidget.clicked.connect(lambda: self.publishAlembicBtn.setEnabled(True))
+        self.openImagesFolderBtn.clicked.connect(self.openImagesFolder)
 
         self.removeMetaBtn.setEnabled(False)
         self.loadBtn.setEnabled(False)
@@ -117,7 +117,7 @@ class projectManagerTools(QtWidgets.QDialog):
     def addMeta(self):
         tagItems = cmds.ls(selection = True)
         if len(tagItems) > 1:
-            pass
+            om.MGlobal.displayError('Multiple object publishing is not supported. Please group all objects and name it correctly.')
         else:
             for item in tagItems:
                 cmds.select(item)
@@ -130,7 +130,7 @@ class projectManagerTools(QtWidgets.QDialog):
 
                 if objType == 'mesh' or objType =='camera' or objType =='transform':
                     if objType == 'mesh':
-                        itemType = 'Geometry'
+                        itemType = 'geometry'
                     elif objType == 'camera':
                         itemType = 'camera'
                     elif objType == 'transform':
@@ -138,6 +138,7 @@ class projectManagerTools(QtWidgets.QDialog):
 
 
                     exitCode = 1
+                    correctGroupName = self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'
                     # Checks if working on asset or shot
                     if self.currentProj['projType'] == 'asset':
                         publishType = self.currentProj['assetType']
@@ -145,16 +146,19 @@ class projectManagerTools(QtWidgets.QDialog):
                             # Makes sure it's in a group.
                             if itemType == 'group':
                                 # Makes sure the group is named correctly.
-                                if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
+                                if item == correctGroupName:
                                     exitCode = 0
                                 else:
                                     om.MGlobal.displayError('The group you are trying to publish is not named correctly.')
 
-                            elif itemType == 'Geometry':
+                            elif itemType == 'geometry':
                                 try:
-                                    item = cmds.group(name = (self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'))
-                                    if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
-                                        exitCode = 0
+                                    if not cmds.objExists(correctGroupName):
+                                        item = cmds.group(name = (self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'))
+                                        if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
+                                            exitCode = 0
+                                    else:
+                                        om.MGlobal.displayError('Correct named group already exists.')
                                 except:
                                     pass
 
@@ -168,34 +172,37 @@ class projectManagerTools(QtWidgets.QDialog):
 
                     elif self.currentProj['projType'] == 'shot':
                         publishType = self.currentProj['projType']
-                        if self.currentProj['task'] == 'anim':
-                            # Makes sure it's in a group.
-                            if itemType == 'group':
-                                # Makes sure the group is named correctly.
-                                if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
-                                    exitCode = 0
-                                else:
-                                    om.MGlobal.displayError('The group you are trying to publish is not named correctly.')
+                        if itemType == 'group':
+                            # Makes sure the group is named correctly.
+                            if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
+                                exitCode = 0
+                            else:
+                                om.MGlobal.displayError('The group you are trying to publish is not named correctly. Correct name: {}'.format(self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'))
 
-                            elif itemType == 'geometry':
-                                try:
+                        elif itemType == 'geometry':
+                            try:
+                                if not cmds.objExists(correctGroupName):
                                     item = cmds.group(name = (self.currentProj['name'] + '_' + self.currentProj['task'] + '_group'))
                                     if item == self.currentProj['name'] + '_' + self.currentProj['task'] + '_group':
                                         exitCode = 0
-                                except:
-                                    print 'error'
-
-                        elif self.currentProj['task'] == 'layout':
-                            if itemType == 'camera':
-                                if item == self.currentProj['name'] + '_' + 'renderCam':
-                                    exitCode = 0
                                 else:
+                                    om.MGlobal.displayError('Correct named group already exists.')
+                            except:
+                                pass
+
+
+                        elif itemType == 'camera':
+                            if self.currentProj['task'] == 'layout':
+                                if item != self.currentProj['name'] + '_' + 'renderCam':
                                     try:
                                         item = cmds.rename(str(item), str(self.currentProj['name']) + '_' + 'renderCam')
-                                        if item == str(self.currentProj['name']) + '_' + 'renderCam':
-                                            exitCode = 0
                                     except:
                                         pass
+                                om.MGlobal.displayError('Please put camera in a correct named group.')
+                            else:
+                                om.MGlobal.displayError('Publishing camera is not allowed in {}'.format(self.currentProj['task']))
+
+
 
 
                     if exitCode == 0:
@@ -360,7 +367,6 @@ class projectManagerTools(QtWidgets.QDialog):
                 om.MGlobal.displayError('Something went wrong. Please contact your suporvisor.')
 
     def populatePublishRenders(self):
-        try:
             imagesVersionDir = os.path.join(self.currentProj['projectDir'], 'images', 'v' + self.currentProj['version'])
             currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
             failedLayersList = []
@@ -374,13 +380,16 @@ class projectManagerTools(QtWidgets.QDialog):
 
                 if not renderLayer.startswith('.'):
                     for renderFile in os.listdir(os.path.join(imagesVersionDir, renderLayer)):
-                        if renderFile.startswith(self.currentProj['sceneName'][:-5] + '_' + renderLayer + '_v' + self.currentProj['version']):
-                            renderFileSize = os.path.getsize(os.path.join(imagesVersionDir, renderLayer, renderFile))
-                            totalFileSize += os.path.getsize(os.path.join(imagesVersionDir, renderLayer, renderFile))
-                            renderFileExt = renderFile[-3:]
-                            renderFileList  = [renderFile, renderFileSize, renderFileExt]
-                            renderFilesList.append(renderFileList)
-                            fileCount.append(int(renderFile[-8:-4]))
+                        try:
+                            if renderFile.startswith(self.currentProj['sceneName'][:-5] + '_' + renderLayer + '_v' + self.currentProj['version']):
+                                fileCount.append(int(renderFile[-8:-4]))
+                                renderFileSize = os.path.getsize(os.path.join(imagesVersionDir, renderLayer, renderFile))
+                                totalFileSize += os.path.getsize(os.path.join(imagesVersionDir, renderLayer, renderFile))
+                                renderFileExt = renderFile[-3:]
+                                renderFileList  = [renderFile, renderFileSize, renderFileExt]
+                                renderFilesList.append(renderFileList)
+                        except:
+                            pass
 
                     if renderFilesList:
                         fileFrameRange = str(renderFilesList[0][0][-8:-4]) + '-' + str(renderFilesList[-1][0][-8:-4])
@@ -398,9 +407,8 @@ class projectManagerTools(QtWidgets.QDialog):
                     rowPosition = self.rendersPublishWidget.rowCount()
                     self.rendersPublishWidget.insertRow(rowPosition)
                     self.rendersPublishWidget.setItem(rowPosition , 0, QtWidgets.QTableWidgetItem(renderLayer['renderLayerName']))
-                    self.rendersPublishWidget.setItem(rowPosition , 1, QtWidgets.QTableWidgetItem(self.currentProj['task']))
-                    self.rendersPublishWidget.setItem(rowPosition , 2, QtWidgets.QTableWidgetItem(self.currentProj['version']))
-                    self.rendersPublishWidget.setItem(rowPosition , 3, QtWidgets.QTableWidgetItem(renderLayer['fileFrameRange']))
+                    self.rendersPublishWidget.setItem(rowPosition , 1, QtWidgets.QTableWidgetItem(self.currentProj['version']))
+                    self.rendersPublishWidget.setItem(rowPosition , 2, QtWidgets.QTableWidgetItem(renderLayer['fileFrameRange']))
             '''
             if failedLayersList:
                 failedRenderText = ""
@@ -410,10 +418,11 @@ class projectManagerTools(QtWidgets.QDialog):
                     else:
                         failedRenderText += str(i) + ', '
                 om.MGlobal.displayError('Failed to add {}. Filenames does not match renderLayer.'.format(failedRenderText.upper()))
-            '''
+
 
         except:
             self.renderTab.setEnabled(False)
+            '''
 
     def publishRenders(self):
         selectedIndexes = self.rendersPublishWidget.selectedIndexes()
@@ -456,7 +465,6 @@ class projectManagerTools(QtWidgets.QDialog):
                 for i in range(frameStart, frameEnd+1):
                     totalPossibleFramesList.append(i)
 
-
                 # Gets the missing frames using difference
                 framesDifference = (set(totalPossibleFramesList).difference(renderLayer['fileCount']))
                 for i in framesDifference:
@@ -476,7 +484,7 @@ class projectManagerTools(QtWidgets.QDialog):
         # If there are items in the list to be published, continue
         if renderLayersPublishList:
             # If there are bad frames ie not EXR or below 100 bytes, warn user and prompt.
-            if badFramesEXR or badFramesBytes:
+            if badFramesEXR or badFramesBytes or incorrectFrameRange:
                 popupMessage = QtWidgets.QMessageBox()
                 popupMessage.setWindowTitle('Render Publish Warning')
                 popupMessage.setText('One or more problems have been found with the files you are trying to publish.\nPress SHOW DETAILS to get more info.\nPress YES to proceed with publish.')
@@ -521,10 +529,8 @@ class projectManagerTools(QtWidgets.QDialog):
 
             # Checks if errorCode suceeded and if there are items in list to publish
             if errorCode == 0:
-                exitCode = 1
-
+                exitCode = 0
                 pathExists = [i[1].replace("/", "\\") for i in renderLayersPublishList if os.path.exists(i[1])]
-                print pathExists
 
                 for r in renderLayersPublishList:
                     try:
@@ -603,79 +609,94 @@ class projectManagerTools(QtWidgets.QDialog):
 
         om.MGlobal.displayInfo("******* Fastblast completed successfully *******")
 
-    def bashComp(self):
-        try:
-            self.currentProj = self.getCurrentProj()
-            imagesVersionDir = os.path.join(self.currentProj['projectDir'], 'images', 'v' + self.currentProj['version'])
-            currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
-            numCurrentFiles = []
+    def quickDaily(self):
+        print 'lala'
+        selectedIndexes = self.rendersPublishWidget.selectedIndexes()
+        selectedRowList = ""
 
-            self.currentProjSplit = self.currentProj['projectDir'].split(os.path.sep)
+        # Takes the data and turns it into string.
+        for i in selectedIndexes:
+            selectedRowList += i.data() + ' '
 
-            reviewDir = os.path.join(os.path.join('/', *self.currentProjSplit[0:-3]), 'review', 'maya')
+        renderLayersPublishList = []
 
-            reviewFileList = [i for i in os.listdir(reviewDir) if i.endswith('.mov')]
+        # If contains string then we know what is selected.
+        for renderLayer in self.renderLayersList:
+            if renderLayer['renderLayerName'] in selectedRowList:
+                pass
 
-            if not reviewFileList:
-                numFiles = "1"
-                revisionID = numFiles.zfill(3)
-            else:
-                reviewVersion = 'v' + self.currentProj['version']
-                # Looks for files with same file version in playblast folder
-                for item in reviewFileList:
-                    if reviewVersion in item:
-                        numCurrentFiles.append(item)
+                imagesVersionDir = os.path.join(self.currentProj['projectDir'], 'images', 'v' + self.currentProj['version'])
+                currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
+                numCurrentFiles = []
 
-                    numFiles = str(len(numCurrentFiles) + 1)
+
+                reviewDir = self.currentProj['projectDir'].replace("work/maya/","review/maya")
+                reviewFileList = [i for i in os.listdir(reviewDir) if i.endswith('.mov')]
+
+                if not reviewFileList:
+                    numFiles = "1"
                     revisionID = numFiles.zfill(3)
+                else:
+                    reviewVersion = 'v' + self.currentProj['version']
+                    # Looks for files with same file version in playblast folder
+                    for item in reviewFileList:
+                        if reviewVersion in item:
+                            numCurrentFiles.append(item)
 
-            # Give user option to chose which renderlayer to do bashComp, 'multiple merged?'
-            if len(currentRenderLayerDirs) > 1:
-                chosenRenderLayer = currentRenderLayerDirs[0]
+                        numFiles = str(len(numCurrentFiles) + 1)
+                        revisionID = numFiles.zfill(3)
 
-            else:
-                chosenRenderLayer = currentRenderLayerDirs[0]
+                # Checks for all files that matches
+                renderLayerFileList = [i for i in os.listdir(os.path.join(imagesVersionDir, renderLayer['renderLayerName']))
+                                                                if i.startswith(self.currentProj['sceneName'][:-5] + '_' + renderLayer['renderLayerName'] + '_v' +
+                                                                self.currentProj['version'])]
 
+                frameRange = ('1,' + str(len(renderLayerFileList)))
 
-            # Checks for all files that matches
-            renderLayerFileList = [i for i in os.listdir(os.path.join(imagesVersionDir, chosenRenderLayer))
-                                                            if i.startswith(self.currentProj['sceneName'][:-5] + '_' + chosenRenderLayer + '_v' +
-                                                            self.currentProj['version'])]
-
-            frameRange = ('1,' + str(len(renderLayerFileList)))
-
-            # Gets the extension of the first file in list
-            renderLayerExt = renderLayerFileList[0][-3:]
-            nukeBashInput = os.path.join(imagesVersionDir, chosenRenderLayer, str(renderLayerFileList[0][0:-8:] + '####.' + renderLayerExt))
-            nukeBashOutput = os.path.join('/' + reviewDir, str(renderLayerFileList[0][:-8] + 'review_r' + revisionID))
+                # Gets the extension of the first file in list
+                renderLayerExt = renderLayerFileList[0][-3:]
+                nukeBashInput = os.path.join(imagesVersionDir, renderLayer['renderLayerName'], str(renderLayerFileList[0][0:-8:] + '####.' + renderLayerExt)).replace("/","\\")
+                nukeBashOutput = os.path.join(reviewDir, str(renderLayerFileList[0][:-8] + 'review_r' + revisionID)).replace("/","\\")
 
 
 
-            # Creates the shell command to launch nuke with right commands
-            nukeBashCommand = (str(self.projectManager.nukePath) + ' -x' + " " +
-                               str(self.projectManager.nukeBashScript) + " " +
-                               str(nukeBashInput) + " " +
-                               str(nukeBashOutput) + " " +
-                               str(self.projectManager.user) + " " +
-                               str(self.currentProj['sceneName']) + " " +
-                               str('r_' + revisionID) + " " +
-                               str(self.projectManager.projectName) + " " +
-                               str(frameRange))
-            nukeRunBash = subprocess.call(nukeBashCommand, shell=True)
+                # Creates the shell command to launch nuke with right commands
+                nukeBashCommand = (str(self.projectManager.nukePath) + ' -x' + " " +
+                                   str(self.projectManager.nukeBashScript) + " " +
+                                   str(nukeBashInput) + " " +
+                                   str(nukeBashOutput) + " " +
+                                   str(self.projectManager.user) + " " +
+                                   str(self.currentProj['sceneName']) + " " +
+                                   str('r_' + revisionID) + " " +
+                                   str(self.projectManager.projectName) + " " +
+                                   str(frameRange))
+                nukeRunBash = subprocess.call(nukeBashCommand, shell=True)
 
-            # Checks for return code
-            if nukeRunBash == 0:
-                try:
-                    os.startfile(reviewDir)
-                except:
-                    subprocess.call(["open", reviewDir])
-                om.MGlobal.displayInfo('** bashComp finished successfully **')
-            else:
-                om.MGlobal.displayError('Something went wrong.')
+                print (str(self.projectManager.nukePath) + ' -x' + " " +
+                                   str(self.projectManager.nukeBashScript) + " " +
+                                   str(nukeBashInput) + " " +
+                                   str(nukeBashOutput) + " " +
+                                   str(self.projectManager.user) + " " +
+                                   str(self.currentProj['sceneName']) + " " +
+                                   str('r_' + revisionID) + " " +
+                                   str(self.projectManager.projectName) + " " +
+                                   str(frameRange))
 
-            self.close()
-        except:
-            om.MGlobal.displayError('No rendered images can be found.')
+                # Checks for return code
+                if nukeRunBash == 0:
+                    try:
+                        os.startfile(reviewDir)
+                    except:
+                        subprocess.call(["open", reviewDir])
+                    om.MGlobal.displayInfo('** bashComp finished successfully **')
+                else:
+                    om.MGlobal.displayError('Something went wrong.')
+
+                self.close()
+
+        #except:
+        #    om.MGlobal.displayError('No rendered images can be found.')
+
 
     def syncFrameRange(self):
         try:
@@ -727,6 +748,41 @@ class projectManagerTools(QtWidgets.QDialog):
         popupMessage.setStandardButtons(QtWidgets.QMessageBox.Ok)
         popupMessage = popupMessage.exec_()
 
+    # RENDER PREP TOOLS -----------------------------------------------------------------------
+    def popRenderPath(self):
+        # Get version ID
+        fileName = cmds.file(q=True, sn=True)[cmds.file(q=True, sn=True).rfind('/')+1:cmds.file(q=True, sn=True).rfind('.')]
+        version = fileName.split("_v")[1]
+        sceneName = fileName.split("_v")[0]
+
+        #Populate Render globals
+        try:
+            cmds.setAttr("vraySettings.fileNamePrefix", 'v<Version>/<Layer>/'+ sceneName + '_<Layer>_v<Version>', type="string")
+            cmds.setAttr("defaultRenderGlobals.renderVersion", version, type="string")
+            cmds.setAttr ("vraySettings.imgOpt_exr_autoDataWindow", 1)
+            cmds.setAttr ("vraySettings.imgOpt_exr_multiPart", 1)
+            om.MGlobal.displayInfo('Renderpaths set successfully.')
+        except:
+            om.MGlobal.displayError('V-Ray is not loaded or not set as current renderer.')
+
+    def openImagesFolder(self):
+        selectedIndexes = self.rendersPublishWidget.selectedIndexes()
+        selectedRowList = ""
+
+        # Takes the data and turns it into string.
+        for i in selectedIndexes:
+            selectedRowList += i.data() + ' '
+
+        renderLayersPublishList = []
+
+        # If contains string then we know what is selected.
+        for renderLayer in self.renderLayersList:
+            if renderLayer['renderLayerName'] in selectedRowList:
+                imagesFolder = os.path.join(self.currentProj['projectDir'], 'images','v' + self.currentProj['version'], renderLayer['renderLayerName'])
+                try:
+                    os.startfile(imagesFolder)
+                except:
+                    subprocess.call(["open", imagesFolder])
 def showUI():
     ui = projectManagerTools()
     ui.show()

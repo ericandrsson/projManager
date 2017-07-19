@@ -203,12 +203,14 @@ class ProjectManagerUI(QtWidgets.QDialog):
                         self.itemSel = asset
                         self.itemSel['itemType'] = 'asset'
 
+                        '''
                         # Sets percentage of asset
                         if int(asset['BidPercent']) > 100:
                             self.bid_time_bar.setValue(100)
                             self.popupMessage('Bidtime', 'Bidtime for this task is up. Please contact your supervisor.')
                         else:
                             self.bid_time_bar.setValue(int(asset['BidPercent']))
+                        '''
 
                         # Checks if version exists, if not set new file button true.
                         if not asset['Version']:
@@ -225,11 +227,13 @@ class ProjectManagerUI(QtWidgets.QDialog):
                     if shot['Step'] == (itemSel.split(' (')[1]).split(')')[0]:
                         self.itemSel = shot
                         self.itemSel['itemType'] = 'shot'
+                        '''
                         if int(shot['BidPercent']) > 100:
                             self.bid_time_bar.setValue(100)
                             self.popupMessage('Bidtime', 'Bidtime for this task is up. Please contact your supervisor.')
                         else:
                             self.bid_time_bar.setValue(int(shot['BidPercent']))
+                        '''
 
                         # Checks if version exists, if not set new file button true.
                         if not shot['Version']:
@@ -293,7 +297,6 @@ class ProjectManagerUI(QtWidgets.QDialog):
                 cmds.workspace(self.itemSel['Maya_Path'], o=True)
                 cmds.file(self.itemSel['Maya_File_Path'], open=True)
                 self.close()
-            self.projectManager.popRenderPath()
         except:
             pass
 
