@@ -1,13 +1,8 @@
 from projManager import projectManager
 from PySide2 import QtWidgets, QtUiTools
-import subprocess
-import os
-import json
-import datetime
-import shelve
+import os, shutil, subprocess, datetime, shelve
 import pymel.core as pm
-import shutil
-from maya import cmds ,OpenMayaUI
+from maya import cmds, OpenMayaUI
 import maya.OpenMaya as om
 
 
@@ -367,6 +362,7 @@ class projectManagerTools(QtWidgets.QDialog):
                 om.MGlobal.displayError('Something went wrong. Please contact your suporvisor.')
 
     def populatePublishRenders(self):
+        try:
             imagesVersionDir = os.path.join(self.currentProj['projectDir'], 'images', 'v' + self.currentProj['version'])
             currentRenderLayerDirs = [i for i in os.listdir(imagesVersionDir) if not i.startswith('.')]
             failedLayersList = []
@@ -418,11 +414,10 @@ class projectManagerTools(QtWidgets.QDialog):
                     else:
                         failedRenderText += str(i) + ', '
                 om.MGlobal.displayError('Failed to add {}. Filenames does not match renderLayer.'.format(failedRenderText.upper()))
-
+            '''
 
         except:
             self.renderTab.setEnabled(False)
-            '''
 
     def publishRenders(self):
         selectedIndexes = self.rendersPublishWidget.selectedIndexes()
@@ -610,7 +605,6 @@ class projectManagerTools(QtWidgets.QDialog):
         om.MGlobal.displayInfo("******* Fastblast completed successfully *******")
 
     def quickDaily(self):
-        print 'lala'
         selectedIndexes = self.rendersPublishWidget.selectedIndexes()
         selectedRowList = ""
 
@@ -661,7 +655,7 @@ class projectManagerTools(QtWidgets.QDialog):
 
 
                 # Creates the shell command to launch nuke with right commands
-                nukeBashCommand = (str(self.projectManager.nukePath) + ' -x' + " " +
+                nukeBashCommand = (str(self.projectManager.nukePath) + ' -r' + " " +
                                    str(self.projectManager.nukeBashScript) + " " +
                                    str(nukeBashInput) + " " +
                                    str(nukeBashOutput) + " " +
@@ -671,16 +665,6 @@ class projectManagerTools(QtWidgets.QDialog):
                                    str(self.projectManager.projectName) + " " +
                                    str(frameRange))
                 nukeRunBash = subprocess.call(nukeBashCommand, shell=True)
-
-                print (str(self.projectManager.nukePath) + ' -x' + " " +
-                                   str(self.projectManager.nukeBashScript) + " " +
-                                   str(nukeBashInput) + " " +
-                                   str(nukeBashOutput) + " " +
-                                   str(self.projectManager.user) + " " +
-                                   str(self.currentProj['sceneName']) + " " +
-                                   str('r_' + revisionID) + " " +
-                                   str(self.projectManager.projectName) + " " +
-                                   str(frameRange))
 
                 # Checks for return code
                 if nukeRunBash == 0:
@@ -696,7 +680,6 @@ class projectManagerTools(QtWidgets.QDialog):
 
         #except:
         #    om.MGlobal.displayError('No rendered images can be found.')
-
 
     def syncFrameRange(self):
         try:
@@ -748,7 +731,6 @@ class projectManagerTools(QtWidgets.QDialog):
         popupMessage.setStandardButtons(QtWidgets.QMessageBox.Ok)
         popupMessage = popupMessage.exec_()
 
-    # RENDER PREP TOOLS -----------------------------------------------------------------------
     def popRenderPath(self):
         # Get version ID
         fileName = cmds.file(q=True, sn=True)[cmds.file(q=True, sn=True).rfind('/')+1:cmds.file(q=True, sn=True).rfind('.')]
@@ -783,6 +765,7 @@ class projectManagerTools(QtWidgets.QDialog):
                     os.startfile(imagesFolder)
                 except:
                     subprocess.call(["open", imagesFolder])
+
 def showUI():
     ui = projectManagerTools()
     ui.show()

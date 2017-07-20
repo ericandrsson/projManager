@@ -63,7 +63,6 @@ class ProjectManagerUI(QtWidgets.QDialog):
                 if not os.path.exists(os.path.join(project_folder, directory)):
                     os.makedirs(os.path.join(project_folder, directory))
 
-
     def getAssetsShots(self):
         self.assets = self.projectManager.getAssets()
         self.shots = self.projectManager.getShots()
@@ -108,9 +107,6 @@ class ProjectManagerUI(QtWidgets.QDialog):
             else:
                 asset['Version'] = ''
                 asset['Maya_File_Path'] = self.asset_maya_path
-
-    #----------------------------------------------------------------------------------------------------
-        # If no folder for shot exists.
         shot_subFolders = ['concept', 'layout', 'anim', 'light', 'FX', 'comp']
         shot_task_subFolders = ['publish', 'review', 'work']
         shot_task_software_subFolders = ['maya', 'nuke', 'houdini']
@@ -140,8 +136,6 @@ class ProjectManagerUI(QtWidgets.QDialog):
             else:
                 shot['Version'] = ''
                 shot['Maya_File_Path'] = self.shot_maya_path
-
-
 
     def populateMyTasks(self):
         try:
@@ -183,8 +177,6 @@ class ProjectManagerUI(QtWidgets.QDialog):
 
                 else:
                     self.shots_list.addItem(shot['Shot_Code'] + ' (' + shot['Step']+ ')')
-
-
 
     def getTaskInfo(self, item):
         self.open_file_btn.setEnabled(False)
@@ -267,7 +259,6 @@ class ProjectManagerUI(QtWidgets.QDialog):
         except:
             pass
         self.close()
-
 
     def open_file(self):
         try:
