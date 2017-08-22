@@ -8,9 +8,9 @@ from maya import cmds
 
 class ProjectManager:
     # Path to project folder.
-    projectName = 'teamProduction'
+    projectName = 'team_4'
     #projectFolder = '/Users/EricAndersson/Desktop/teamProduction/'
-    projectFolder = os.path.join('D:\\Users\\emanuel.and6428\\Project\\', projectName)
+    projectFolder = os.path.join('\\\productions\\boad\\Projects\\BAD17023\\team_production_II\\', projectName)
 
     #nukePath = '/Applications/Nuke10.5v2/Nuke10.5v2*Non-commercial.app/Nuke10.5v2*Non-commercial'
     nukePath = 'C:\\apps\\nuke\\10.5v1\\Nuke10.5.exe'
@@ -60,6 +60,7 @@ class ProjectManager:
         shotList = []
         for row in self.readShots:
             self.shot = {'Shot_Code': row[0], 'Step': row[1], 'Status': row[2], 'Assigned_To': row[3], 'Bid': row[4], 'BidPercent': row[5]}
+            print row
             shotList.append(self.shot)
         return shotList
 

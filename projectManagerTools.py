@@ -144,7 +144,7 @@ class projectManagerTools(QtWidgets.QDialog):
                                 if item == correctGroupName:
                                     exitCode = 0
                                 else:
-                                    om.MGlobal.displayError('The group you are trying to publish is not named correctly.')
+                                    om.MGlobal.displayError('The group you are trying to publish is not named correctly. Correct: {}_{}_group'.format(self.currentProj['name'], self.currentProj['task']))
 
                             elif itemType == 'geometry':
                                 try:
@@ -300,6 +300,7 @@ class projectManagerTools(QtWidgets.QDialog):
             self.alembicPublishWidget.setItem(rowPosition , 2, QtWidgets.QTableWidgetItem(self.currentProj['version']))
             self.alembicPublishWidget.setItem(rowPosition , 3, QtWidgets.QTableWidgetItem(frameRange))
 
+
     def publishAlembic(self):
         # Load the alembic plugin
         cmds.loadPlugin("AbcExport.mll", quiet=True)
@@ -433,6 +434,7 @@ class projectManagerTools(QtWidgets.QDialog):
         incorrectFrameRange = []
         missingFrames = []
         renderLayersPublishList = []
+
 
         # Gets the framerange
         shotBreakDown = self.projectManager.getFrameRange(self.currentProj['name'])
@@ -708,7 +710,7 @@ class projectManagerTools(QtWidgets.QDialog):
         fileName = filePath.split('/')[-1]
         sceneName = fileName.split('.')[0]
         name = fileName.split('_')[0]
-        task = sceneName.split('_')[1]
+        task = sceneName.split('_')[-2]
         version = sceneName.split('v')[1]
         publishDir = projectDir.replace("work/maya/","publish/maya")
 

@@ -107,7 +107,7 @@ class ProjectManagerUI(QtWidgets.QDialog):
             else:
                 asset['Version'] = ''
                 asset['Maya_File_Path'] = self.asset_maya_path
-        shot_subFolders = ['concept', 'layout', 'anim', 'light', 'FX', 'comp']
+        shot_subFolders = ['prepro', 'layout', 'anim', 'light', 'FX', 'comp']
         shot_task_subFolders = ['publish', 'review', 'work']
         shot_task_software_subFolders = ['maya', 'nuke', 'houdini']
 
@@ -141,7 +141,7 @@ class ProjectManagerUI(QtWidgets.QDialog):
         try:
             # Populates my tasks with assigned assets
             for asset in self.assets:
-                if asset['Assigned_To'] in str(self.projectManager.user):
+                if asset['Assigned_To'] in str(self.projectManager.user) and asset['Assigned_To'] != "":
                     if not asset['Task'] == 'art':
                         if asset['Version']:
                             self.my_tasks_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')' + ' - ' + 'v' + asset['Version'])
@@ -151,7 +151,7 @@ class ProjectManagerUI(QtWidgets.QDialog):
 
             # Populates my tasks with assigned assets
             for shot in self.shots:
-                if shot['Assigned_To'] in str(self.projectManager.user):
+                if shot['Assigned_To'] in str(self.projectManager.user) and shot['Assigned_To'] != "":
                     if not shot['Step'] == 'comp':
                         if shot['Version']:
                             self.my_tasks_list.addItem(shot['Shot_Code'] + ' (' + shot['Step']+ ')' + ' - ' + 'v' + shot['Version'])
@@ -163,11 +163,12 @@ class ProjectManagerUI(QtWidgets.QDialog):
 
     def populateAssetsShotsTab(self):
         for asset in self.assets:
-            if asset['Version']:
-                self.assets_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')' + ' - ' + 'v' + asset['Version'])
+            if not asset['Task'] == 'art':
+                if asset['Version']:
+                    self.assets_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')' + ' - ' + 'v' + asset['Version'])
 
-            else:
-                self.assets_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')')
+                else:
+                    self.assets_list.addItem(asset['Name'] + ' (' + asset['Task']+ ')')
 
 
         for shot in self.shots:
