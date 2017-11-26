@@ -455,6 +455,7 @@ class projectManagerTools(QtWidgets.QDialog):
                 totalPossibleFramesList = []
                 totalFramesList = []
 
+                shotFrameRangeStart = 991
                 # If frame range is not matching shot append list with info.
                 if frameStart != shotFrameRangeStart and frameEnd != shotFrameRangeEnd:
                     incorrectFrameRange.append([renderLayer['renderLayerName'], frameStart, frameEnd])

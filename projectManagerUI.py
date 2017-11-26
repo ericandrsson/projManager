@@ -117,7 +117,8 @@ class ProjectManagerUI(QtWidgets.QDialog):
                 for shot_task_subFolder in shot_task_subFolders:
                     for shot_task_software_subFolder in shot_task_software_subFolders:
                         if not os.path.exists(os.path.join(shotDir, shot_subFolder, shot_task_subFolder, shot_task_software_subFolder)):
-                            os.makedirs(os.path.join(shotDir, shot_subFolder, shot_task_subFolder, shot_task_software_subFolder))
+                            pass
+                            #os.makedirs(os.path.join(shotDir, shot_subFolder, shot_task_subFolder, shot_task_software_subFolder))
             # Checks for latest version and adds to dictiory
             self.shot_maya_path = os.path.join(self.projectManager.projectFolder, 'shots', shot['Shot_Code'], shot['Step'], 'work', 'maya')
             if os.path.isfile(os.path.join(str(self.shot_maya_path), 'scenes' , str(shot['Shot_Code']) + '_' + str(shot['Step']) + '_v001.ma')):
